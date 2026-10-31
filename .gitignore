@@ -1,0 +1,29 @@
+# ===== 개인 DB 계정 (절대 올리지 않음) =====
+src/main/resources/db.properties
+
+# ===== 카카오맵 키 등 개인 설정 =====
+src/main/resources/secret.properties
+
+# ===== Claude Code 개인 설정 =====
+CLAUDE.local.md
+.claude/settings.local.json
+
+# ===== 빌드 결과 =====
+target/
+bin/
+*.class
+*.war
+
+# ===== STS / Eclipse 개인 설정 =====
+.metadata/
+.recommenders/
+*.launch
+.settings/org.eclipse.wst.jsdt.ui.superType.*
+.settings/.jsdtscope
+
+# ===== OS / 기타 =====
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak

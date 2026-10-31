@@ -1,0 +1,14 @@
+# TT플래너 DB 접속 정보 예시
+# 1) 이 파일을 복사해서 같은 폴더에 db.properties 로 저장한다.
+# 2) 각자 PC의 Oracle 계정에 맞게 username / password 를 고친다.
+# db.properties 는 .gitignore 에 들어 있어 GitHub에 올라가지 않는다.
+
+# log4jdbc를 거쳐 실행 SQL을 콘솔에 출력한다 (URL 앞의 jdbc:log4jdbc: 부분)
+db.driver=net.sf.log4jdbc.sql.jdbcapi.DriverSpy
+db.url=jdbc:log4jdbc:oracle:thin:@localhost:1521:XE
+db.username=tt_planner
+db.password=tt_planner
+
+# SQL 로그가 필요 없으면 아래 두 줄로 바꾼다
+# db.driver=oracle.jdbc.OracleDriver
+# db.url=jdbc:oracle:thin:@localhost:1521:XE

@@ -1,0 +1,12 @@
+# 내 정보 (개인 파일)
+
+이 파일을 복사해서 같은 폴더에 `CLAUDE.local.md`로 저장하고 내 정보로 고친다.
+`CLAUDE.local.md`는 .gitignore에 있어서 GitHub에 올라가지 않는다.
+
+- 이름: 송유림
+- 역할: PM / DB · 백엔드
+- 담당 UC: UC-020(여행 복사), UC-022(내 여행 통계)
+- 내 브랜치 예시: feature/yurim-copy, feature/yurim-stats
+
+## 개인 요청
+- (예) 설명할 때 STS 화면에서 어디를 눌러 확인하는지까지 알려 줘.
