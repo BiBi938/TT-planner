@@ -1,0 +1,23 @@
+package com.ttplanner.service;
+
+import java.util.List;
+
+import com.ttplanner.vo.DayVO;
+
+/**
+ * DAY 관리 (UC-011 DAY 추가·삭제, UC-012 DAY 날짜 변경)
+ * findDays는 박준성 님(UC-005 여행 열람)이 가져다 쓰는 팀 연결 메서드 → 이름·매개변수 바꾸지 않음
+ */
+public interface DayService {
+
+	// 여행 하나의 DAY 목록 (DAY_NO 순서, 날짜·일정 개수 포함)
+	public List<DayVO> findDays(Long tripId);
+
+	// 마지막 DAY 뒤에 빈 DAY 추가 → 추가한 DAY(dayNo, dayDate = 새 종료일)를 돌려줌
+	// 여행이 없거나 DAY가 30개면 IllegalStateException
+	public DayVO addDay(Long tripId);
+
+	// DAY 삭제 → 그 DAY의 일정도 함께 삭제, 뒤 DAY 번호를 하나씩 당김 (시작일은 그대로)
+	// 여행·DAY가 없거나, DAY가 1개뿐이거나(1B), 전체 공개 여행의 일정이 0개가 되면(1D) IllegalStateException
+	public void deleteDay(Long tripId, int dayNo);
+}

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace = DayMapper 인터페이스의 전체 이름 -->
+<mapper namespace="com.ttplanner.mapper.DayMapper">
+
+	<!-- 여행 하나의 DAY 목록
+	     - day_date      : DAY 날짜는 저장하지 않고 START_DATE + DAY_NO - 1 로 계산
+	     - schedule_count: 이 DAY의 일정 개수
+	     - 삭제된 여행(DEL_YN = 'Y')은 조회하지 않음 -->
+	<select id="findDays" resultType="com.ttplanner.vo.DayVO">
+		select d.day_id,
+		       d.trip_id,
+		       d.day_no,
+		       t.start_date + d.day_no - 1 as day_date,
+		       (select count(*) from schedule s where s.day_id = d.day_id) as schedule_count
+		from trip_day d
+		join trip t on d.trip_id = t.trip_id
+		where d.trip_id = #{tripId}
+		  and t.del_yn = 'N'
+		order by d.day_no
+	</select>
+
+	<!-- 여행 하나의 DAY 개수 (삭제된 여행은 0) -->
+	<select id="countDays" resultType="int">
+		select count(*)
+		from trip_day d
+		join trip t on d.trip_id = t.trip_id
+		where d.trip_id = #{tripId}
+		  and t.del_yn = 'N'
+	</select>
+
+	<!-- DAY 한 개 추가. DAY_ID는 시퀀스로 자동 번호
+	     #{tripId}, #{dayNo} = 넘겨받은 DayVO의 getTripId(), getDayNo() 값 -->
+	<insert id="insertDay">
+		insert into trip_day (day_id, trip_id, day_no)
+		values (seq_trip_day.nextval, #{tripId}, #{dayNo})
+	</insert>
+
+	<!-- ===== DAY 삭제용 (UC-011 1A~1D) ===== -->
+
+	<!-- 여행의 공개 범위 (없거나 삭제된 여행이면 결과 없음 → null) -->
+	<select id="getTripScope" resultType="string">
+		select scope
+		from trip
+		where trip_id = #{tripId}
+		  and del_yn = 'N'
+	</select>
+
+	<!-- 여행 전체의 일정 개수: 이 여행의 DAY들에 붙은 일정을 모두 센다 -->
+	<select id="countTripSchedules" resultType="int">
+		select count(*)
+		from schedule s
+		join trip_day d on s.day_id = d.day_id
+		where d.trip_id = #{tripId}
+	</select>
+
+	<!-- ① 그 DAY의 일정 삭제 (DAY보다 먼저 지워야 FK 오류가 안 남) -->
+	<delete id="deleteDaySchedules">
+		delete from schedule
+		where day_id in (select day_id
+		                 from trip_day
+		                 where trip_id = #{tripId}
+		                   and day_no = #{dayNo})
+	</delete>
+
+	<!-- ② 그 DAY 삭제 -->
+	<delete id="deleteDay">
+		delete from trip_day
+		where trip_id = #{tripId}
+		  and day_no = #{dayNo}
+	</delete>
+
+	<!-- ③ 뒤 DAY 번호 당기기: 지운 DAY보다 뒤에 있는 DAY의 번호를 1씩 줄인다 -->
+	<update id="shiftDaysAfter">
+		update trip_day
+		set day_no = day_no - 1
+		where trip_id = #{tripId}
+		  and day_no > #{dayNo}
+	</update>
+
+</mapper>
