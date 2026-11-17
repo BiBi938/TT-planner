@@ -19,5 +19,6 @@ public interface DayService {
 
 	// DAY 삭제 → 그 DAY의 일정도 함께 삭제, 뒤 DAY 번호를 하나씩 당김 (시작일은 그대로)
 	// 여행·DAY가 없거나, DAY가 1개뿐이거나(1B), 전체 공개 여행의 일정이 0개가 되면(1D) IllegalStateException
-	public void deleteDay(Long tripId, int dayNo);
+	// dayId = DAY의 고유 번호(DAY_ID). DAY 번호(dayNo)는 삭제 때마다 바뀌므로 쓰지 않는다
+	public void deleteDay(Long tripId, Long dayId);
 }

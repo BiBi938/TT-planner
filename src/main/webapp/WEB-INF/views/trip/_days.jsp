@@ -43,9 +43,10 @@
 
 			<%-- [DAY 삭제]
 			     1B: DAY가 1개면 버튼 비활성화
-			     1C: 일정이 있는 DAY만 확인 창 → [취소]를 누르면 제출하지 않음 --%>
+			     1C: 일정이 있는 DAY만 확인 창 → [취소]를 누르면 제출하지 않음
+			     주소에는 DAY 번호가 아니라 바뀌지 않는 DAY_ID를 넣는다 --%>
 			<form class="pull-right" method="post"
-				action="/trips/<c:out value='${tripId}'/>/days/<c:out value='${day.dayNo}'/>/delete"
+				action="/trips/<c:out value='${tripId}'/>/days/<c:out value='${day.dayId}'/>/delete"
 				<c:if test="${day.scheduleCount > 0}">
 					onsubmit="return confirm('DAY <c:out value='${day.dayNo}'/>에 일정 <c:out value='${day.scheduleCount}'/>개가 있습니다. 함께 삭제할까요?');"
 				</c:if>>

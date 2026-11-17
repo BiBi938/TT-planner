@@ -27,13 +27,13 @@ public interface DayMapper {
 	// 여행 전체의 일정 개수 (모든 DAY 합계)
 	public int countTripSchedules(Long tripId);
 
-	// 아래 3개는 day에 tripId, dayNo를 넣어서 호출. 반환값 = 바뀐 행 수
-	// ① 그 DAY의 일정 삭제
+	// 아래 3개는 findDays()로 찾은 DayVO를 그대로 넘겨서 호출. 반환값 = 바뀐 행 수
+	// ① 그 DAY의 일정 삭제 (dayId 사용)
 	public int deleteDaySchedules(DayVO day);
 
-	// ② 그 DAY 삭제
+	// ② 그 DAY 삭제 (dayId 사용)
 	public int deleteDay(DayVO day);
 
-	// ③ 뒤 DAY 번호를 하나씩 당김 (dayNo보다 큰 DAY_NO - 1)
+	// ③ 뒤 DAY 번호를 하나씩 당김 (tripId, dayNo 사용: dayNo보다 큰 DAY_NO - 1)
 	public int shiftDaysAfter(DayVO day);
 }

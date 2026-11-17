@@ -57,8 +57,8 @@ public class DayServiceImpl implements DayService {
 	// 여러 행을 함께 바꾸므로 @Transactional: 중간에 실패하면 ①②③ 전부 취소
 	@Transactional
 	@Override
-	public void deleteDay(Long tripId, int dayNo) {
-		log.info("deleteDay......" + tripId + ", DAY " + dayNo);
+	public void deleteDay(Long tripId, Long dayId) {
+		log.info("deleteDay......" + tripId + ", DAY_ID " + dayId);
 
 		// 1. 이 여행의 DAY 목록을 가져와서 검사에 쓴다
 		List<DayVO> days = mapper.findDays(tripId);
@@ -72,10 +72,12 @@ public class DayServiceImpl implements DayService {
 			throw new IllegalStateException("DAY가 1개만 남아 있어 삭제할 수 없습니다.");
 		}
 
-		// 지울 DAY 찾기 (없으면 target은 null 그대로)
+		// 지울 DAY 찾기: 이 여행의 DAY 중에서만 찾는다
+		// (다른 여행의 DAY_ID가 주소로 들어와도 못 찾음 → 다른 여행 DAY를 지울 수 없음)
+		// Long끼리는 == 대신 equals()로 비교한다 (== 는 값이 아니라 객체가 같은지 비교)
 		DayVO target = null;
 		for (DayVO day : days) {
-			if (day.getDayNo() == dayNo) {
+			if (day.getDayId().equals(dayId)) {
 				target = day;
 			}
 		}

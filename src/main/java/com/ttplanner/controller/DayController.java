@@ -52,18 +52,18 @@ public class DayController {
 		return "redirect:/trips/" + tripId;
 	}
 
-	// DAY 삭제: POST /trips/1/days/2/delete
+	// DAY 삭제: POST /trips/1/days/12/delete   (12 = DAY_ID, DAY 번호가 아님)
 	// (일정이 있을 때의 확인 창 1C는 화면 _days.jsp의 JavaScript confirm()에서 처리)
-	@PostMapping("/{dayNo}/delete")
+	@PostMapping("/{dayId}/delete")
 	public String delete(@PathVariable("tripId") Long tripId,
-						 @PathVariable("dayNo") int dayNo,
+						 @PathVariable("dayId") Long dayId,
 						 RedirectAttributes rttr) {
-		log.info("delete day......" + tripId + ", DAY " + dayNo);
+		log.info("delete day......" + tripId + ", DAY_ID " + dayId);
 
 		// TODO(윤아연): 세션 로그인 정보 확정 후 권한 검사 (OWNER, EDITOR만)
 
 		try {
-			service.deleteDay(tripId, dayNo);
+			service.deleteDay(tripId, dayId);
 			rttr.addFlashAttribute("msg", "뒤의 DAY가 하루씩 당겨지고 종료일이 하루 줄었습니다.");
 		} catch (IllegalStateException e) {
 			// Service에서 막은 경우 (1B DAY 1개, DAY 없음, 1D 마지막 일정 보호)
