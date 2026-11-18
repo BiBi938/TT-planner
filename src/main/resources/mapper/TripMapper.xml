@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 여행 SQL (담당: 박준성). namespace = TripMapper 인터페이스의 전체 이름 -->
+<mapper namespace="com.ttplanner.mapper.TripMapper">
+
+	<!-- 여행 한 개를 읽을 때 쓰는 컬럼
+	     - end_date, day_count : 저장하지 않고 V_TRIP_PERIOD 뷰에서 계산한 값
+	     - owner_nickname, member_count : 멤버 요약 "OWNER 닉네임 외 N명" (UC-005 4번) -->
+	<sql id="tripColumns">
+		t.trip_id, t.title, t.start_date, t.scope, t.share_token, t.del_yn, t.created_at,
+		p.end_date, p.day_count,
+		(select u.nickname
+		   from trip_member m join users u on u.user_id = m.user_id
+		  where m.trip_id = t.trip_id and m.role = 'OWNER') as owner_nickname,
+		(select count(*)
+		   from trip_member m
+		  where m.trip_id = t.trip_id and m.status = 'JOINED') as member_count
+	</sql>
+
+	<!-- 지역을 17개 시·도 목록 순서대로 정렬 -->
+	<sql id="regionOrder">
+		instr('서울,부산,대구,인천,광주,대전,울산,세종,경기,강원,충북,충남,전북,전남,경북,경남,제주', r.region)
+	</sql>
+
+	<!-- ================= 조회 ================= -->
+
+	<!-- UC-007 내 여행: 내가 만들었거나 멤버로 참여(JOINED)한 여행, 최근에 만든 순서 -->
+	<select id="getMyTrips" resultType="com.ttplanner.vo.TripVO">
+		select t.trip_id, t.title, t.start_date, t.scope, t.created_at,
+		       p.end_date, p.day_count,
+		       m.role as my_role,
+		       (select listagg(r.region, ', ') within group (order by <include refid="regionOrder"/>)
+		          from trip_region r
+		         where r.trip_id = t.trip_id) as region_names
+		  from trip t
+		  join trip_member m on m.trip_id = t.trip_id
+		  join v_trip_period p on p.trip_id = t.trip_id
+		 where m.user_id = #{userId}
+		   and m.status = 'JOINED'
+		   and t.del_yn = 'N'
+		 order by t.created_at desc, t.trip_id desc
+	</select>
+
+	<select id="read" resultType="com.ttplanner.vo.TripVO">
+		select <include refid="tripColumns"/>
+		  from trip t
+		  join v_trip_period p on p.trip_id = t.trip_id
+		 where t.trip_id = #{tripId}
+		   and t.del_yn = 'N'
+	</select>
+
+	<select id="readByShareToken" resultType="com.ttplanner.vo.TripVO">
+		select <include refid="tripColumns"/>
+		  from trip t
+		  join v_trip_period p on p.trip_id = t.trip_id
+		 where t.share_token = #{shareToken}
+		   and t.del_yn = 'N'
+	</select>
+
+	<select id="getRegions" resultType="string">
+		select r.region
+		  from trip_region r
+		 where r.trip_id = #{tripId}
+		 order by <include refid="regionOrder"/>
+	</select>
+
+	<select id="getRole" resultType="string">
+		select role
+		  from trip_member
+		 where trip_id = #{tripId}
+		   and user_id = #{userId}
+		   and status = 'JOINED'
+	</select>
+
+	<!-- ================= UC-008 여행 생성 ================= -->
+
+	<!-- 공개 범위는 항상 비공개. DEL_YN, CREATED_AT은 테이블 기본값('N', sysdate) -->
+	<insert id="insert" parameterType="com.ttplanner.vo.TripVO">
+		<selectKey keyProperty="tripId" order="BEFORE" resultType="long">
+			select seq_trip.nextval from dual
+		</selectKey>
+		insert into trip (trip_id, title, start_date, scope, share_token)
+		values (#{tripId}, #{title}, #{startDate, jdbcType=DATE}, 'PRIVATE', #{shareToken})
+	</insert>
+
+	<insert id="insertRegions">
+		insert all
+		<foreach collection="regions" item="region">
+			into trip_region (trip_id, region) values (#{tripId}, #{region})
+		</foreach>
+		select * from dual
+	</insert>
+
+	<insert id="insertOwner">
+		insert into trip_member (trip_id, user_id, role, status)
+		values (#{tripId}, #{userId}, 'OWNER', 'JOINED')
+	</insert>
+
+	<!-- ================= UC-009 · UC-015 · UC-010 ================= -->
+
+	<update id="updateTitle">
+		update trip
+		   set title = #{title}
+		 where trip_id = #{tripId}
+		   and del_yn = 'N'
+	</update>
+
+	<delete id="deleteRegions">
+		delete from trip_region where trip_id = #{tripId}
+	</delete>
+
+	<!-- 시작일만 바꾸면 DAY 날짜와 종료일이 함께 이동한다 (DAY 날짜 = START_DATE + DAY_NO - 1) -->
+	<update id="updateStartDate">
+		update trip
+		   set start_date = #{startDate, jdbcType=DATE}
+		 where trip_id = #{tripId}
+		   and del_yn = 'N'
+	</update>
+
+	<update id="updateScope">
+		update trip
+		   set scope = #{scope}
+		 where trip_id = #{tripId}
+		   and del_yn = 'N'
+	</update>
+
+	<!-- 행은 지우지 않고 표시만 한다 (좋아요 · 통계 유지) -->
+	<update id="delete">
+		update trip
+		   set del_yn = 'Y'
+		 where trip_id = #{tripId}
+	</update>
+
+	<!-- ================= 일정 수 ================= -->
+
+	<select id="countSchedules" resultType="int">
+		select count(*)
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		 where d.trip_id = #{tripId}
+	</select>
+
+	<!-- 장소는 위치(LAT · LNG) 없이 이름만 있어도 입력된 것으로 본다 -->
+	<select id="countIncompleteSchedules" resultType="int">
+		select count(*)
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		 where d.trip_id = #{tripId}
+		   and (s.time is null or s.place_name is null)
+	</select>
+
+	<select id="countSchedulesUpTo" resultType="int">
+		select count(*)
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		 where d.trip_id = #{tripId}
+		   and d.day_no &lt;= #{dayNo}
+	</select>
+
+	<select id="countSchedulesAfter" resultType="int">
+		select count(*)
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		 where d.trip_id = #{tripId}
+		   and d.day_no &gt; #{dayNo}
+	</select>
+
+	<!-- ================= DAY (임시, TODO 양지호) ================= -->
+
+	<insert id="insertDay">
+		insert into trip_day (day_id, trip_id, day_no)
+		values (seq_day.nextval, #{tripId}, #{dayNo})
+	</insert>
+
+	<!-- 그 DAY의 일정은 schedule의 on delete cascade로 함께 지워진다 -->
+	<delete id="deleteDaysAfter">
+		delete from trip_day
+		 where trip_id = #{tripId}
+		   and day_no &gt; #{dayNo}
+	</delete>
+
+	<!-- DayVO와 같은 이름(tripId, dayNo, dayDate, scheduleCount)으로 돌려줘서 _days.jsp에서도 그대로 쓸 수 있게 한다 -->
+	<select id="getDays" resultType="map">
+		select d.trip_id                    as "tripId",
+		       d.day_no                     as "dayNo",
+		       t.start_date + d.day_no - 1  as "dayDate",
+		       (select count(*) from schedule s where s.day_id = d.day_id) as "scheduleCount"
+		  from trip_day d
+		  join trip t on t.trip_id = d.trip_id
+		 where d.trip_id = #{tripId}
+		   and t.del_yn = 'N'
+		 order by d.day_no
+	</select>
+
+</mapper>

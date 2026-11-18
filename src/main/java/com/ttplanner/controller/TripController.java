@@ -1,0 +1,251 @@
+package com.ttplanner.controller;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.ttplanner.service.TripAccessException;
+import com.ttplanner.service.TripPeriodConfirmException;
+import com.ttplanner.service.TripService;
+import com.ttplanner.service.TripValidationException;
+import com.ttplanner.vo.TripFormVO;
+import com.ttplanner.vo.TripVO;
+
+import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j;
+
+/**
+ * 여행 화면 (담당: 박준성)
+ *
+ * GET  /trips                     UC-007 내 여행 (+ UC-008 새 여행 만들기 창)
+ * POST /trips                     UC-008 여행 생성 → /trips/{번호}
+ * GET  /trips/{tripId}            UC-005 여행 열람 (로그인 없이도 열림, 볼 수 있는지는 Service에서 검사)
+ * GET  /s/{shareToken}            UC-005 · UC-016 공유 링크로 열람 (로그인 없이, 공개 범위와 관계없이)
+ * POST /trips/{tripId}/info       UC-009 제목 · 지역 수정        (OWNER)
+ * POST /trips/{tripId}/period     UC-009 1A 여행 기간 변경       (OWNER)
+ * POST /trips/{tripId}/scope      UC-015 공개 범위 설정          (OWNER)
+ * POST /trips/{tripId}/delete     UC-010 여행 삭제               (OWNER)
+ *
+ * 처리 결과 문구는 flash "tripMsg"로 넘긴다.
+ * (양지호 님 DayController가 쓰는 flash "msg"와 겹치지 않게 이름을 다르게 둠)
+ */
+@Controller
+@Log4j
+@AllArgsConstructor
+public class TripController {
+
+	/** LoginInterceptor · UserController(윤아연)가 로그인 회원(UserVO)을 담는 세션 이름 */
+	private static final String LOGIN_USER = "loginUser";
+
+	/** 로그인이 필요할 때 보내는 주소 (로그인 화면에 "로그인이 필요합니다." 표시) */
+	private static final String LOGIN_REQUIRED = "redirect:/user/login?required";
+
+	private TripService service;
+
+	// ===================== UC-007 내 여행 =====================
+
+	@GetMapping("/trips")
+	public String list(HttpSession session, Model model) {
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED; // 1A. 비로그인
+		}
+		log.info("list......" + userId);
+
+		model.addAttribute("trips", service.getMyTrips(userId));
+		model.addAttribute("regionOptions", TripService.REGIONS);
+		if (!model.containsAttribute("newForm")) {
+			model.addAttribute("newForm", new TripFormVO());
+		}
+		// TODO(송유림): 여행 복사 중(UC-007 2B)이면 카드 테두리와 [+ 복사한 DAY로 새 여행 만들기]를 보여야 한다.
+		//              복사 상태를 담는 세션 이름이 정해지면 여기서 model에 넣는다.
+		return "trip/list";
+	}
+
+	// ===================== UC-008 여행 생성 =====================
+
+	@PostMapping("/trips")
+	public String create(TripFormVO form, HttpSession session, RedirectAttributes rttr) {
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+		try {
+			Long tripId = service.create(userId, form);
+			rttr.addFlashAttribute("tripMsg", "여행을 만들었습니다. 공개 범위는 비공개입니다.");
+			return "redirect:/trips/" + tripId;
+		} catch (TripValidationException e) {
+			// 입력 창을 다시 열고 입력값과 오류 문구를 보여 준다 (3단계로 돌아감)
+			rttr.addFlashAttribute("tripErrors", e.getErrors());
+			rttr.addFlashAttribute("newForm", form);
+			rttr.addFlashAttribute("openDialog", "new");
+			return "redirect:/trips";
+		}
+	}
+
+	// ===================== UC-005 여행 열람 =====================
+
+	@GetMapping("/trips/{tripId}")
+	public String detail(@PathVariable("tripId") Long tripId, HttpSession session,
+						 HttpServletRequest request, Model model) {
+		log.info("detail......" + tripId);
+		TripVO trip = service.getTrip(tripId, loginUserId(session));
+		fillDetail(trip, request, model);
+		return "trip/detail";
+	}
+
+	@GetMapping("/s/{shareToken}")
+	public String shared(@PathVariable("shareToken") String shareToken, HttpSession session,
+						 HttpServletRequest request, Model model) {
+		log.info("shared......" + shareToken);
+		TripVO trip = service.getTripByShareToken(shareToken, loginUserId(session));
+		fillDetail(trip, request, model);
+		return "trip/detail";
+	}
+
+	/** detail.jsp와 조각(_days.jsp, _members.jsp, 지도, 좋아요)이 쓰는 값 */
+	private void fillDetail(TripVO trip, HttpServletRequest request, Model model) {
+		model.addAttribute("trip", trip);
+
+		// TODO(양지호): DayService가 develop에 들어오면 dayService.findDays(trip.getTripId())로 바꾼다.
+		model.addAttribute("days", service.getDays(trip.getTripId()));
+
+		// UC-016 1A. 공유 링크는 멤버에게만 보인다
+		if (trip.isMember()) {
+			model.addAttribute("shareUrl", baseUrl(request) + "/s/" + trip.getShareToken());
+		}
+
+		// [제목·지역 수정] 창, 기간 변경 칸의 처음 값 (입력 오류로 돌아온 경우에는 flash 값이 이미 들어 있음)
+		model.addAttribute("regionOptions", TripService.REGIONS);
+		if (!model.containsAttribute("infoForm")) {
+			TripFormVO infoForm = new TripFormVO();
+			infoForm.setTitle(trip.getTitle());
+			infoForm.setRegions(trip.getRegions());
+			model.addAttribute("infoForm", infoForm);
+		}
+		if (!model.containsAttribute("periodForm")) {
+			TripFormVO periodForm = new TripFormVO();
+			periodForm.setStartDate(trip.getStartDateInput());
+			periodForm.setEndDate(trip.getEndDateInput());
+			model.addAttribute("periodForm", periodForm);
+		}
+	}
+
+	// ===================== UC-009 여행 정보 수정 =====================
+
+	@PostMapping("/trips/{tripId}/info")
+	public String modifyInfo(@PathVariable("tripId") Long tripId, TripFormVO form,
+							 HttpSession session, RedirectAttributes rttr) {
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+		try {
+			rttr.addFlashAttribute("tripMsg", service.modifyInfo(userId, tripId, form));
+		} catch (TripValidationException e) {
+			rttr.addFlashAttribute("tripErrors", e.getErrors());
+			rttr.addFlashAttribute("infoForm", form);
+			rttr.addFlashAttribute("openDialog", "info");
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	@PostMapping("/trips/{tripId}/period")
+	public String changePeriod(@PathVariable("tripId") Long tripId, TripFormVO form,
+							   @RequestParam(value = "confirmDelete", defaultValue = "N") String confirmDelete,
+							   HttpSession session, RedirectAttributes rttr) {
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+		try {
+			rttr.addFlashAttribute("tripMsg",
+					service.changePeriod(userId, tripId, form, "Y".equals(confirmDelete)));
+		} catch (TripValidationException e) {
+			rttr.addFlashAttribute("tripErrors", e.getErrors());
+			rttr.addFlashAttribute("periodForm", form);
+			rttr.addFlashAttribute("openDialog", "period");
+		} catch (TripPeriodConfirmException e) {
+			// 1B. 확인 창: [삭제하고 저장]을 누르면 confirmDelete=Y로 다시 보낸다
+			rttr.addFlashAttribute("periodConfirm", e.getMessage());
+			rttr.addFlashAttribute("periodForm", form);
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	// ===================== UC-015 공개 범위 설정 =====================
+
+	@PostMapping("/trips/{tripId}/scope")
+	public String changeScope(@PathVariable("tripId") Long tripId, @RequestParam("scope") String scope,
+							  HttpSession session, RedirectAttributes rttr) {
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+		try {
+			rttr.addFlashAttribute("tripMsg", service.changeScope(userId, tripId, scope));
+		} catch (TripValidationException e) {
+			rttr.addFlashAttribute("tripErrors", e.getErrors()); // 2A. 공개 범위는 바꾸지 않음
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	// ===================== UC-010 여행 삭제 =====================
+
+	@PostMapping("/trips/{tripId}/delete")
+	public String remove(@PathVariable("tripId") Long tripId, HttpSession session, RedirectAttributes rttr) {
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+		service.remove(userId, tripId);
+		rttr.addFlashAttribute("tripMsg", "여행을 삭제했습니다.");
+		return "redirect:/trips";
+	}
+
+	// ===================== 볼 수 없는 여행 · 권한 없음 =====================
+
+	@ExceptionHandler(TripAccessException.class)
+	public ModelAndView accessDenied(TripAccessException e, HttpServletResponse response) {
+		log.info("access denied: " + e.getMessage());
+		response.setStatus(e.getStatus());
+		ModelAndView mav = new ModelAndView("trip/denied");
+		mav.addObject("message", e.getMessage());
+		return mav;
+	}
+
+	// ===================== helpers =====================
+
+	/**
+	 * 로그인 회원 번호. 로그인하지 않았으면 null
+	 * TODO(윤아연): UserVO가 develop에 들어오면 ((UserVO) session.getAttribute("loginUser")).getUserId()로 바꾼다.
+	 *              지금은 UserVO 클래스가 develop에 없어서, 이름으로 userId 값만 꺼낸다.
+	 */
+	private Long loginUserId(HttpSession session) {
+		Object loginUser = session == null ? null : session.getAttribute(LOGIN_USER);
+		if (loginUser == null) {
+			return null;
+		}
+		Object userId = new BeanWrapperImpl(loginUser).getPropertyValue("userId");
+		return userId == null ? null : ((Number) userId).longValue();
+	}
+
+	/** "http://localhost:8080" (+ 컨텍스트 경로) */
+	private static String baseUrl(HttpServletRequest request) {
+		String scheme = request.getScheme();
+		int port = request.getServerPort();
+		boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+		return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port) + request.getContextPath();
+	}
+}
