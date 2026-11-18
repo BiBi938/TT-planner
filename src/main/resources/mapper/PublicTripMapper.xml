@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 공개 여행 검색 SQL (담당: 윤아연, UC-004 / SFR-007) -->
+<mapper namespace="com.ttplanner.mapper.PublicTripMapper">
+
+	<!-- 검색 조건: 전체 공개 + 삭제 안 된 여행 + (검색어) + (지역) + (여행 일수) -->
+	<sql id="criteria">
+		 where t.del_yn = 'N'
+		   and t.scope = 'PUBLIC'
+		<if test="keyword != null">
+		   <!-- LIKE 대신 INSTR: 검색어에 % _ 가 들어 있어도 글자 그대로 찾는다. 영문은 대소문자 구분 없이 -->
+		   and instr(lower(t.title), lower(#{keyword})) &gt; 0
+		</if>
+		<if test="region != null">
+		   <!-- 선택한 지역이 포함된 여행 모두 (지역이 여러 개인 여행도 포함) -->
+		   and exists (select 1
+		                 from trip_region r
+		                where r.trip_id = t.trip_id
+		                  and r.region = #{region})
+		</if>
+		<choose>
+			<when test="days >= 1 and days &lt;= 3">
+		   and p.day_count = #{days}
+			</when>
+			<when test="days == 4">
+		   and p.day_count &gt;= 4
+			</when>
+		</choose>
+	</sql>
+
+	<select id="search" resultType="com.ttplanner.vo.PublicTripVO">
+		select t.trip_id,
+		       t.title,
+		       p.start_date,
+		       p.end_date,
+		       p.day_count,
+		       (select count(*) from trip_like l where l.trip_id = t.trip_id) as like_count
+		  from trip t
+		  join v_trip_period p on p.trip_id = t.trip_id
+		<include refid="criteria" />
+		 order by t.created_at desc, t.trip_id desc
+		offset #{offset} rows fetch next #{pageSize} rows only
+	</select>
+
+	<select id="count" resultType="int">
+		select count(*)
+		  from trip t
+		  join v_trip_period p on p.trip_id = t.trip_id
+		<include refid="criteria" />
+	</select>
+
+</mapper>
