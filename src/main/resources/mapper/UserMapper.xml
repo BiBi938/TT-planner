@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 회원 SQL (담당: 윤아연, UC-001~003, 023, 024) -->
+<mapper namespace="com.ttplanner.mapper.UserMapper">
+
+	<!-- 회원가입 (UC-001) -->
+	<insert id="insert">
+		<selectKey keyProperty="userId" order="BEFORE" resultType="long">
+			select seq_users.nextval from dual
+		</selectKey>
+		insert into users (user_id, nickname, email, password)
+		values (#{userId}, #{nickname}, #{email}, #{password})
+	</insert>
+
+	<!-- 로그인 (UC-002): 탈퇴한 회원은 찾지 않는다 -->
+	<select id="findByEmail" resultType="com.ttplanner.vo.UserVO">
+		select user_id, nickname, email, password, del_yn
+		  from users
+		 where email = #{email}
+		   and del_yn = 'N'
+	</select>
+
+	<select id="findById" resultType="com.ttplanner.vo.UserVO">
+		select user_id, nickname, email, password, del_yn
+		  from users
+		 where user_id = #{userId}
+		   and del_yn = 'N'
+	</select>
+
+	<!-- 중복 확인 (UC-001, UC-023) -->
+	<select id="countByNickname" resultType="int">
+		select count(*)
+		  from users
+		 where nickname = #{nickname}
+		   and del_yn = 'N'
+		<if test="excludeUserId != null">
+		   and user_id &lt;&gt; #{excludeUserId}
+		</if>
+	</select>
+
+	<select id="countByEmail" resultType="int">
+		select count(*)
+		  from users
+		 where email = #{email}
+		   and del_yn = 'N'
+		<if test="excludeUserId != null">
+		   and user_id &lt;&gt; #{excludeUserId}
+		</if>
+	</select>
+
+	<!-- 회원 정보 수정 (UC-023) -->
+	<update id="updateInfo">
+		update users
+		   set nickname = #{nickname},
+		       email = #{email}
+		 where user_id = #{userId}
+		   and del_yn = 'N'
+	</update>
+
+	<update id="updatePassword">
+		update users
+		   set password = #{password}
+		 where user_id = #{userId}
+		   and del_yn = 'N'
+	</update>
+
+	<!-- ===================== 회원 탈퇴 (UC-024) ===================== -->
+
+	<!-- 내가 OWNER인 여행과, 그 여행에 남아 있는 다른 멤버 수 -->
+	<select id="findOwnedTrips" resultType="com.ttplanner.vo.OwnedTripVO">
+		select t.trip_id,
+		       t.title,
+		       (select count(*)
+		          from trip_member o
+		         where o.trip_id = t.trip_id
+		           and o.user_id &lt;&gt; #{userId}
+		           and o.status = 'JOINED') as other_member_count
+		  from trip t
+		  join trip_member m on m.trip_id = t.trip_id
+		 where m.user_id = #{userId}
+		   and m.role = 'OWNER'
+		   and t.del_yn = 'N'
+		 order by t.start_date, t.trip_id
+	</select>
+
+	<!-- 내가 EDITOR · VIEWER로 참여 중인 여행 수 -->
+	<select id="countJoinedTrips" resultType="int">
+		select count(*)
+		  from trip_member m
+		  join trip t on t.trip_id = m.trip_id
+		 where m.user_id = #{userId}
+		   and m.status = 'JOINED'
+		   and m.role &lt;&gt; 'OWNER'
+		   and t.del_yn = 'N'
+	</select>
+
+	<!-- 회원 행은 지우지 않고 탈퇴 표시. 같은 닉네임 · 이메일로 다시 가입할 수 있게 값을 바꾼다.
+	     비밀번호는 어떤 해시와도 맞지 않는 값으로 바꿔 로그인할 수 없게 한다. -->
+	<update id="withdraw">
+		update users
+		   set del_yn = 'Y',
+		       nickname = '탈퇴회원' || user_id,
+		       email = '탈퇴회원' || user_id,
+		       password = '-'
+		 where user_id = #{userId}
+		   and del_yn = 'N'
+	</update>
+
+</mapper>
