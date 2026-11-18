@@ -8,6 +8,7 @@
   필요한 model 값
     - days : List<DayVO>  (TripController.detail에서 dayService.findDays(tripId)로 넣어 줌)
     - msg  : 처리 결과 문구 (DayController가 flash로 전달, 있을 때만)
+    - trip : TripVO (trip.myRole로 버튼 표시 여부를 정함)
 --%>
 
 <style>
@@ -23,6 +24,9 @@
 <%-- 여행 번호와 DAY 개수 (DAY는 항상 1개 이상이므로 첫 DAY에서 여행 번호를 꺼낸다) --%>
 <c:set var="tripId" value="${days[0].tripId}" />
 <c:set var="dayCount" value="${fn:length(days)}" />
+
+<%-- DAY를 추가·삭제할 수 있는지: OWNER, EDITOR만 (trip = TripController(박준성)가 넣는 여행, myRole = 내 권한) --%>
+<c:set var="canEditDays" value="${trip.myRole == 'OWNER' or trip.myRole == 'EDITOR'}" />
 
 <%-- 처리 결과 문구 (DAY 추가·삭제 후 한 번만 보임) --%>
 <c:if test="${not empty msg}">
@@ -44,7 +48,9 @@
 			<%-- [DAY 삭제]
 			     1B: DAY가 1개면 버튼 비활성화
 			     1C: 일정이 있는 DAY만 확인 창 → [취소]를 누르면 제출하지 않음
-			     주소에는 DAY 번호가 아니라 바뀌지 않는 DAY_ID를 넣는다 --%>
+			     주소에는 DAY 번호가 아니라 바뀌지 않는 DAY_ID를 넣는다
+			     OWNER, EDITOR에게만 보인다 --%>
+			<c:if test="${canEditDays}">
 			<form class="pull-right" method="post"
 				action="/trips/<c:out value='${tripId}'/>/days/<c:out value='${day.dayId}'/>/delete"
 				<c:if test="${day.scheduleCount > 0}">
@@ -53,15 +59,16 @@
 				<button type="submit" class="btn btn-default btn-xs"
 					<c:if test="${dayCount == 1}">disabled</c:if>>DAY 삭제</button>
 			</form>
+			</c:if>
 
 			<%-- TODO(양지호): UC-013 일정 목록, UC-006 [지도] 버튼 자리 --%>
 		</div>
 	</div>
 </c:forEach>
 
-<%-- [+ DAY 추가]: 마지막 DAY 뒤에 빈 DAY 추가 --%>
+<%-- [+ DAY 추가]: 마지막 DAY 뒤에 빈 DAY 추가 (OWNER, EDITOR에게만 보인다) --%>
+<c:if test="${canEditDays}">
 <form method="post" action="/trips/<c:out value='${tripId}'/>/days" class="text-center">
 	<button type="submit" class="btn btn-primary">+ DAY 추가</button>
 </form>
-
-<%-- TODO(윤아연): 로그인 정보 확정 후 OWNER·EDITOR에게만 [DAY 삭제], [+ DAY 추가] 버튼 보이기 --%>
+</c:if>
