@@ -9,6 +9,9 @@ create user tt_planner identified by tt_planner
   temporary tablespace temp;
 
 grant connect, resource to tt_planner;
+-- schema.sql의 v_trip_period 뷰를 만들기 위한 권한 (resource 역할에는 들어 있지 않음)
+-- 이미 계정을 만든 사람은 system 접속에서 이 한 줄만 실행한다.
+grant create view to tt_planner;
 alter user tt_planner quota unlimited on users;
 
 -- 이후 SQL Developer에서 tt_planner / tt_planner 로 새 접속을 만들어

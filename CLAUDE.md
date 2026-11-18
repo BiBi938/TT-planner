@@ -80,9 +80,15 @@ src/main/webapp/WEB-INF/views/            trip/, user/, settings/ ... (공통: i
 
 ## 5. Git 규칙 (사용자가 직접 실행)
 
-- `main`에 직접 커밋하지 않는다. 작업은 `feature/이름-기능` 브랜치에서 하고 Pull Request로 합친다.
-  예: `feature/yurim-copy`, `feature/jiho-day-order`
-- 현재 브랜치가 `main`이면 코드 작성 전에 사용자에게 알려 준다.
+- 브랜치 구조: `main`(완성본) ← `develop`(팀 통합) ← `feature/이름-기능`(개인 작업)
+- `main`과 `develop`에 직접 커밋하지 않는다.
+- 작업 브랜치는 기능(UC) 단위 개인 브랜치로, 항상 최신 `develop`에서 만든다.
+  다른 사람의 feature 브랜치에서 만들지 않는다.
+  예: `feature/yurim-copy`, `feature/jiho-member`
+- Pull Request의 base는 `develop`이다.
+  `develop` 병합(통합)은 김민정(QA), `develop` → `main` 병합은 송유림(PM)만 한다.
+- 다른 사람의 코드가 필요하면 그 기능이 `develop`에 들어온 뒤 내 브랜치에 `develop`을 Merge해서 받는다.
+- 현재 브랜치가 `main`이나 `develop`이면 코드 작성 전에 사용자에게 알려 준다.
 - 커밋 메시지 형식: `[UC-020] 여행 복사 DAY 선택 화면 추가`
   설정이나 공통 파일이면 `[공통] ...`, 버그 수정이면 `[UC-xxx] fix: ...`
 - 커밋 제안 시 `db.properties`, `target/`, `.metadata/`가 포함되지 않았는지 확인한다.
