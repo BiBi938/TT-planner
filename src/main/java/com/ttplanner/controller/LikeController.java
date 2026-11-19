@@ -28,8 +28,8 @@ import lombok.extern.log4j.Log4j;
  *   비로그인  401  {"message": "로그인이 필요합니다.", "loginUrl": "/user/login"}
  *   비공개/삭제된 여행  403  {"message": "..."}
  *
- * LoginInterceptor가 /api/** 경로를 먼저 처리하므로 비로그인이면 여기까지 오지 않는다.
- * servlet-context.xml 등록 여부와 무관하게 세션을 직접 검사해 이중으로 방어한다.
+ * LoginInterceptor가 servlet-context.xml에 아직 등록되어 있지 않으므로 세션을 직접 검사한다.
+ * 등록된 뒤에도 같은 형식의 401을 돌려주므로 화면 동작은 같다.
  */
 @Controller
 @Log4j
