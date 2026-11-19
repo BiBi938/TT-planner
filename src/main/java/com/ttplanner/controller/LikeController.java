@@ -5,7 +5,6 @@ import java.util.Map;
 
 import javax.servlet.http.HttpSession;
 
-import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -13,8 +12,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.ttplanner.interceptor.LoginInterceptor;
 import com.ttplanner.service.LikeNotAllowedException;
 import com.ttplanner.service.LikeService;
+import com.ttplanner.vo.UserVO;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j;
@@ -27,16 +28,13 @@ import lombok.extern.log4j.Log4j;
  *   비로그인  401  {"message": "로그인이 필요합니다.", "loginUrl": "/user/login"}
  *   비공개/삭제된 여행  403  {"message": "..."}
  *
- * LoginInterceptor가 아직 servlet-context.xml에 등록되지 않아 세션을 직접 검사한다.
- * TODO(윤아연): UserVO가 develop에 들어오면 loginUserId()를
- *              ((UserVO) session.getAttribute("loginUser")).getUserId()로 바꾼다.
+ * LoginInterceptor가 /api/** 경로를 먼저 처리하므로 비로그인이면 여기까지 오지 않는다.
+ * servlet-context.xml 등록 여부와 무관하게 세션을 직접 검사해 이중으로 방어한다.
  */
 @Controller
 @Log4j
 @AllArgsConstructor
 public class LikeController {
-
-    private static final String LOGIN_USER = "loginUser";
 
     private LikeService service;
 
@@ -55,7 +53,11 @@ public class LikeController {
         }
 
         try {
-            Map<String, Object> result = service.toggle(tripId, userId);
+            boolean liked = service.toggle(tripId, userId);
+            int count = service.count(tripId);
+            Map<String, Object> result = new HashMap<String, Object>();
+            result.put("liked", liked);
+            result.put("count", count);
             return ResponseEntity.ok(result);
         } catch (LikeNotAllowedException e) {
             Map<String, Object> body = new HashMap<String, Object>();
@@ -65,11 +67,13 @@ public class LikeController {
     }
 
     private Long loginUserId(HttpSession session) {
-        Object loginUser = session == null ? null : session.getAttribute(LOGIN_USER);
-        if (loginUser == null) {
+        if (session == null) {
             return null;
         }
-        Object userId = new BeanWrapperImpl(loginUser).getPropertyValue("userId");
-        return userId == null ? null : ((Number) userId).longValue();
+        Object loginUser = session.getAttribute(LoginInterceptor.LOGIN_USER);
+        if (loginUser instanceof UserVO) {
+            return ((UserVO) loginUser).getUserId();
+        }
+        return null;
     }
 }

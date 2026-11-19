@@ -1,8 +1,5 @@
 package com.ttplanner.service;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
@@ -41,33 +38,26 @@ public class LikeServiceImpl implements LikeService {
     }
 
     @Override
-    public Map<String, Object> toggle(Long tripId, Long userId) {
+    public boolean toggle(Long tripId, Long userId) {
         // 1A 서버 검사: 전체 공개이고 삭제되지 않은 여행인지 확인
         if (mapper.isTripPublicAndActive(tripId) == 0) {
             throw new LikeNotAllowedException("좋아요는 전체 공개 여행에만 할 수 있습니다.");
         }
 
-        boolean liked;
         if (mapper.deleteLike(tripId, userId) > 0) {
             // 기존에 좋아요가 있었으므로 취소 (UC-021 2A)
-            liked = false;
             log.info("좋아요 취소: tripId=" + tripId + ", userId=" + userId);
-        } else {
-            // 좋아요 없음 → 새로 추가
-            try {
-                mapper.insertLike(tripId, userId);
-                liked = true;
-                log.info("좋아요 추가: tripId=" + tripId + ", userId=" + userId);
-            } catch (DuplicateKeyException e) {
-                // 동시 클릭으로 같은 행이 이미 삽입된 경우 → 좋아요 상태 유지
-                liked = true;
-                log.info("좋아요 중복 삽입 무시(동시 클릭): tripId=" + tripId + ", userId=" + userId);
-            }
+            return false;
         }
 
-        Map<String, Object> result = new HashMap<String, Object>();
-        result.put("liked", liked);
-        result.put("count", mapper.count(tripId));
-        return result;
+        // 좋아요 없음 → 새로 추가
+        try {
+            mapper.insertLike(tripId, userId);
+            log.info("좋아요 추가: tripId=" + tripId + ", userId=" + userId);
+        } catch (DuplicateKeyException e) {
+            // 동시 클릭으로 같은 행이 이미 삽입된 경우 → 좋아요 상태 유지
+            log.info("좋아요 중복 삽입 무시(동시 클릭): tripId=" + tripId + ", userId=" + userId);
+        }
+        return true;
     }
 }

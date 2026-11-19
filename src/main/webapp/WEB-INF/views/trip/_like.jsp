@@ -1,3 +1,4 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%--
   UC-021 좋아요 버튼 조각 · 담당: 김민정
   trip/detail.jsp에서 <jsp:include page="_like.jsp"/>로 포함 (박준성 소유 파일, 직접 수정 금지).
@@ -22,7 +23,7 @@
     <span id="likeArea" style="display: inline-block; vertical-align: middle;">
         <button type="button" id="likeBtn"
                 class="btn btn-sm ${initLiked ? 'btn-danger' : 'btn-default'}"
-                data-trip-id="${trip.tripId}"
+                data-trip-id="<c:out value='${trip.tripId}'/>"
                 aria-label="좋아요">
             <c:choose>
                 <c:when test="${initLiked}">&#9829;</c:when>

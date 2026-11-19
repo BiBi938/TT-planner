@@ -3,7 +3,6 @@ package com.ttplanner.service;
 import static org.junit.Assert.*;
 
 import java.util.List;
-import java.util.Map;
 
 import javax.sql.DataSource;
 
@@ -76,11 +75,12 @@ public class LikeServiceTests {
     /** 기본 흐름: 누르면 liked=true, 좋아요 수+1, isLiked=true */
     @Test
     public void test기본흐름() {
-        Map<String, Object> result = service.toggle(TEST_TRIP_PUBLIC, TEST_USER_A);
-        log.info("기본흐름 결과: " + result);
+        boolean liked = service.toggle(TEST_TRIP_PUBLIC, TEST_USER_A);
+        int count = service.count(TEST_TRIP_PUBLIC);
+        log.info("기본흐름 결과: liked=" + liked + ", count=" + count);
 
-        assertTrue((Boolean) result.get("liked"));
-        assertEquals(1, result.get("count"));
+        assertTrue(liked);
+        assertEquals(1, count);
         assertTrue(service.isLiked(TEST_TRIP_PUBLIC, TEST_USER_A));
     }
 
@@ -88,11 +88,12 @@ public class LikeServiceTests {
     @Test
     public void test좋아요취소() {
         service.toggle(TEST_TRIP_PUBLIC, TEST_USER_A); // 1회차: 좋아요
-        Map<String, Object> result = service.toggle(TEST_TRIP_PUBLIC, TEST_USER_A); // 2회차: 취소
-        log.info("취소 결과: " + result);
+        boolean liked = service.toggle(TEST_TRIP_PUBLIC, TEST_USER_A); // 2회차: 취소
+        int count = service.count(TEST_TRIP_PUBLIC);
+        log.info("취소 결과: liked=" + liked + ", count=" + count);
 
-        assertFalse((Boolean) result.get("liked"));
-        assertEquals(0, result.get("count"));
+        assertFalse(liked);
+        assertEquals(0, count);
         assertFalse(service.isLiked(TEST_TRIP_PUBLIC, TEST_USER_A));
     }
 
@@ -106,10 +107,11 @@ public class LikeServiceTests {
     @Test
     public void test두회원좋아요() {
         service.toggle(TEST_TRIP_PUBLIC, TEST_USER_A);
-        Map<String, Object> result = service.toggle(TEST_TRIP_PUBLIC, TEST_USER_B);
-        log.info("두 회원 결과: " + result);
+        service.toggle(TEST_TRIP_PUBLIC, TEST_USER_B);
+        int count = service.count(TEST_TRIP_PUBLIC);
+        log.info("두 회원 결과: count=" + count);
 
-        assertEquals(2, result.get("count"));
+        assertEquals(2, count);
         assertTrue(service.isLiked(TEST_TRIP_PUBLIC, TEST_USER_A));
         assertTrue(service.isLiked(TEST_TRIP_PUBLIC, TEST_USER_B));
     }

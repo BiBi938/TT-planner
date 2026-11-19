@@ -1,14 +1,13 @@
 package com.ttplanner.service;
 
-import java.util.Map;
-
 /**
  * 좋아요 서비스 (담당: 김민정, UC-021)
  *
  * 구성정의서 8장 나. 연결 지점:
  *   LikeService.count(tripId)
  *   LikeService.isLiked(tripId, userId)
- *   LikeService.toggle(tripId, userId) → {"liked": boolean, "count": int}
+ *   LikeService.toggle(tripId, userId) → boolean (누른 뒤 좋아요 상태)
+ *   POST /api/trips/{tripId}/like → LikeController가 count()를 따로 호출해 {"liked", "count"} JSON 반환
  */
 public interface LikeService {
 
@@ -23,8 +22,8 @@ public interface LikeService {
 
     /**
      * 좋아요 토글.
-     * @return {"liked": true/false, "count": n}
+     * @return 토글 후 좋아요 상태 (true = 좋아요, false = 취소)
      * @throws LikeNotAllowedException 비공개 여행이거나 삭제된 여행인 경우 (UC-021 1A)
      */
-    Map<String, Object> toggle(Long tripId, Long userId);
+    boolean toggle(Long tripId, Long userId);
 }

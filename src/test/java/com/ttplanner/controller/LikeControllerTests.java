@@ -1,7 +1,10 @@
 package com.ttplanner.controller;
 
+import static org.junit.Assert.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -14,6 +17,9 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.Setter;
 import lombok.extern.log4j.Log4j;
@@ -53,10 +59,14 @@ public class LikeControllerTests {
             .perform(post("/api/trips/1/like")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.message").value("로그인이 필요합니다."))
-            .andExpect(jsonPath("$.loginUrl").value("/user/login"))
             .andReturn().getResponse().getContentAsString();
 
         log.info("비로그인 응답: " + responseBody);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> body = objectMapper.readValue(
+                responseBody, new TypeReference<Map<String, Object>>() {});
+        assertEquals("로그인이 필요합니다.", body.get("message"));
+        assertEquals("/user/login", body.get("loginUrl"));
     }
 }
