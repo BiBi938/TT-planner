@@ -36,6 +36,7 @@
 		       p.start_date,
 		       p.end_date,
 		       p.day_count,
+		       <!-- 좋아요 수: 공개 여행 목록은 SQL로 직접 센다 (구성정의서 v1.4 8장 나.) -->
 		       (select count(*) from trip_like l where l.trip_id = t.trip_id) as like_count
 		  from trip t
 		  join v_trip_period p on p.trip_id = t.trip_id
