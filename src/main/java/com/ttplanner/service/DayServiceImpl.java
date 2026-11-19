@@ -1,5 +1,6 @@
 package com.ttplanner.service;
 
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,5 +101,61 @@ public class DayServiceImpl implements DayService {
 		mapper.deleteDaySchedules(target);
 		mapper.deleteDay(target);
 		mapper.shiftDaysAfter(target);
+	}
+
+	@Transactional
+	@Override
+	public void syncDays(Long tripId, Date start, Date end) {
+		log.info("syncDays......" + tripId + ", " + start + " ~ " + end);
+
+		// ① 날짜 검사
+		if (start == null || end == null) {
+			throw new IllegalStateException("시작일과 종료일을 모두 입력하세요.");
+		}
+		int newCount = countDaysBetween(start, end);
+		if (newCount < 1) {
+			throw new IllegalStateException("종료일은 시작일과 같거나 이후여야 합니다.");
+		}
+		if (newCount > MAX_DAYS) {
+			throw new IllegalStateException("여행 기간은 30일 이하로 정해 주세요.");
+		}
+
+		// ② 여행이 있는지 (새 여행은 DAY가 0개라 countDays로는 알 수 없음)
+		String scope = mapper.getTripScope(tripId);
+		if (scope == null) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+
+		int oldCount = mapper.countDays(tripId);
+
+		// ③ 늘어남 → 뒤에 빈 DAY 추가 (예: 3개 → 5개면 DAY 4, 5)
+		if (newCount > oldCount) {
+			for (int dayNo = oldCount + 1; dayNo <= newCount; dayNo++) {
+				DayVO day = new DayVO();
+				day.setTripId(tripId);
+				day.setDayNo(dayNo);
+				mapper.insertDay(day);
+			}
+		}
+
+		// ④ 줄어듦 → 뒤 DAY의 일정 삭제 → 뒤 DAY 삭제 (예: 5개 → 3개면 DAY 4, 5)
+		if (newCount < oldCount) {
+			int lost = mapper.countSchedulesAfter(tripId, newCount); // 지워질 일정 수
+			int total = mapper.countTripSchedules(tripId);           // 지금 전체 일정 수
+			if ("PUBLIC".equals(scope) && lost > 0 && total - lost == 0) {
+				throw new IllegalStateException("전체 공개 여행에는 일정이 1개 이상 있어야 합니다. 비공개로 바꾼 뒤 기간을 줄이세요.");
+			}
+			mapper.deleteSchedulesAfter(tripId, newCount);
+			mapper.deleteDaysAfter(tripId, newCount);
+		}
+
+		// 같으면 아무것도 안 함 (날짜만 옮긴 경우: DAY 날짜는 START_DATE로 계산되므로 저절로 이동)
+	}
+
+	// 시작일 ~ 종료일이 며칠인지 (같은 날 = 1일). 예) 11/20 ~ 11/24 → 5
+	private int countDaysBetween(Date start, Date end) {
+		long oneDay = 24L * 60 * 60 * 1000;          // 하루 = 86,400,000 밀리초
+		long diff = end.getTime() - start.getTime(); // 두 날짜 차이 (밀리초)
+		return (int) (diff / oneDay) + 1;
 	}
 }

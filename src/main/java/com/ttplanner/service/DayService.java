@@ -1,5 +1,6 @@
 package com.ttplanner.service;
 
+import java.util.Date;
 import java.util.List;
 
 import com.ttplanner.vo.DayVO;
@@ -21,4 +22,10 @@ public interface DayService {
 	// 여행·DAY가 없거나, DAY가 1개뿐이거나(1B), 전체 공개 여행의 일정이 0개가 되면(1D) IllegalStateException
 	// dayId = DAY의 고유 번호(DAY_ID). DAY 번호(dayNo)는 삭제 때마다 바뀌므로 쓰지 않는다
 	public void deleteDay(Long tripId, Long dayId);
+
+	// 여행 기간(start ~ end)에 맞춰 DAY 개수를 맞춘다 (박준성 UC-008 여행 생성, UC-009 기간 변경에서 호출)
+	// 늘면 뒤에 빈 DAY 추가, 줄면 뒤 DAY와 그 일정 삭제. TRIP.START_DATE는 바꾸지 않는다
+	// 날짜가 비었거나 거꾸로이거나, 30일 초과, 여행 없음, 전체 공개 여행의 일정이 0개가 되면 IllegalStateException
+	// 팀 연결 메서드(구성정의서 8장 나.) → 이름·매개변수 바꾸지 않음
+	public void syncDays(Long tripId, Date start, Date end);
 }

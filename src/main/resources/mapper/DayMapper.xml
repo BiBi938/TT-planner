@@ -78,4 +78,34 @@
 		  and day_no > #{dayNo}
 	</update>
 
+	<!-- ===== 여행 기간에 맞춰 DAY 개수 맞추기 (syncDays) =====
+	     "dayNo보다 뒤에 있는 DAY" = 이 여행의 DAY 중 DAY_NO > #{dayNo}
+	     예) DAY 5개 → 3일로 줄이면 dayNo = 3 → DAY 4, 5가 대상 -->
+
+	<!-- 뒤 DAY들의 일정 개수 (기간을 줄이면 지워질 일정 수) -->
+	<select id="countSchedulesAfter" resultType="int">
+		select count(*)
+		from schedule s
+		join trip_day d on s.day_id = d.day_id
+		where d.trip_id = #{tripId}
+		  and d.day_no > #{dayNo}
+	</select>
+
+	<!-- 뒤 DAY들의 일정 삭제 (DAY보다 먼저)
+	     in (...) 안의 select로 "뒤 DAY들의 DAY_ID 목록"을 먼저 구하고, 그 DAY_ID의 일정을 지운다 -->
+	<delete id="deleteSchedulesAfter">
+		delete from schedule
+		where day_id in (select day_id
+		                 from trip_day
+		                 where trip_id = #{tripId}
+		                   and day_no > #{dayNo})
+	</delete>
+
+	<!-- 뒤 DAY 삭제 -->
+	<delete id="deleteDaysAfter">
+		delete from trip_day
+		where trip_id = #{tripId}
+		  and day_no > #{dayNo}
+	</delete>
+
 </mapper>
