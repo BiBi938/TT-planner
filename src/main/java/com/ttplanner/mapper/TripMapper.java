@@ -2,7 +2,6 @@ package com.ttplanner.mapper;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.ibatis.annotations.Param;
 
@@ -45,6 +44,9 @@ public interface TripMapper {
 	// 삭제는 DEL_YN = 'Y'로 표시만 한다
 	int delete(Long tripId);
 
+	// 회원이 OWNER인 여행을 모두 삭제 표시 (회원 탈퇴)
+	int deleteByOwner(Long userId);
+
 	// ---------- 일정 수 (공개 범위 · 기간 변경 검사) ----------
 	int countSchedules(Long tripId);
 
@@ -61,7 +63,4 @@ public interface TripMapper {
 	int insertDay(@Param("tripId") Long tripId, @Param("dayNo") int dayNo);
 
 	int deleteDaysAfter(@Param("tripId") Long tripId, @Param("dayNo") int dayNo);
-
-	// TODO(양지호): DayService.findDays(tripId)가 생기면 지운다.
-	List<Map<String, Object>> getDays(Long tripId);
 }

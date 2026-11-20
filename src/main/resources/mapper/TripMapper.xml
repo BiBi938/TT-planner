@@ -133,6 +133,17 @@
 		 where trip_id = #{tripId}
 	</update>
 
+	<!-- 회원 탈퇴(UC-024): 그 회원이 OWNER인 여행을 모두 삭제 표시 -->
+	<update id="deleteByOwner">
+		update trip
+		   set del_yn = 'Y'
+		 where del_yn = 'N'
+		   and trip_id in (select m.trip_id
+		                     from trip_member m
+		                    where m.user_id = #{userId}
+		                      and m.role = 'OWNER')
+	</update>
+
 	<!-- ================= 일정 수 ================= -->
 
 	<select id="countSchedules" resultType="int">
@@ -180,18 +191,5 @@
 		 where trip_id = #{tripId}
 		   and day_no &gt; #{dayNo}
 	</delete>
-
-	<!-- DayVO와 같은 이름(tripId, dayNo, dayDate, scheduleCount)으로 돌려줘서 _days.jsp에서도 그대로 쓸 수 있게 한다 -->
-	<select id="getDays" resultType="map">
-		select d.trip_id                    as "tripId",
-		       d.day_no                     as "dayNo",
-		       t.start_date + d.day_no - 1  as "dayDate",
-		       (select count(*) from schedule s where s.day_id = d.day_id) as "scheduleCount"
-		  from trip_day d
-		  join trip t on t.trip_id = d.trip_id
-		 where d.trip_id = #{tripId}
-		   and t.del_yn = 'N'
-		 order by d.day_no
-	</select>
 
 </mapper>

@@ -1,5 +1,9 @@
 package com.ttplanner.controller;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.ttplanner.service.DayService;
 import com.ttplanner.service.TripAccessException;
 import com.ttplanner.service.TripPeriodConfirmException;
 import com.ttplanner.service.TripService;
@@ -53,6 +58,8 @@ public class TripController {
 
 	private TripService service;
 
+	private DayService dayService; // DAY 목록 (양지호, UC-011 · UC-012)
+
 	// ===================== UC-007 내 여행 =====================
 
 	@GetMapping("/trips")
@@ -68,8 +75,7 @@ public class TripController {
 		if (!model.containsAttribute("newForm")) {
 			model.addAttribute("newForm", new TripFormVO());
 		}
-		// TODO(송유림): 여행 복사 중(UC-007 2B)이면 카드 테두리와 [+ 복사한 DAY로 새 여행 만들기]를 보여야 한다.
-		//              복사 상태를 담는 세션 이름이 정해지면 여기서 model에 넣는다.
+		// UC-007 2B. 여행 복사 중인지는 list.jsp가 세션 copyDays(송유림)로 직접 확인한다
 		return "trip/list";
 	}
 
@@ -101,7 +107,7 @@ public class TripController {
 						 HttpServletRequest request, Model model) {
 		log.info("detail......" + tripId);
 		TripVO trip = service.getTrip(tripId, loginUserId(session));
-		fillDetail(trip, request, model);
+		fillDetail(trip, null, request, model);
 		return "trip/detail";
 	}
 
@@ -110,16 +116,38 @@ public class TripController {
 						 HttpServletRequest request, Model model) {
 		log.info("shared......" + shareToken);
 		TripVO trip = service.getTripByShareToken(shareToken, loginUserId(session));
-		fillDetail(trip, request, model);
+		fillDetail(trip, shareToken, request, model);
 		return "trip/detail";
 	}
 
-	/** detail.jsp와 조각(_days.jsp, _members.jsp, 지도, 좋아요)이 쓰는 값 */
-	private void fillDetail(TripVO trip, HttpServletRequest request, Model model) {
+	/**
+	 * detail.jsp와 조각(_days.jsp, _members.jsp, _map.jsp, _like.jsp)이 쓰는 값 (구성정의서 8장 나.)
+	 * trip, days, schedules, summary, members, myRole, likeCount, liked
+	 * token: 공유 링크(/s/{token})로 열었을 때만 값이 있다 → [내 여행으로 복사]를 /trips/{id}/copy?token=…으로 보낸다
+	 */
+	private void fillDetail(TripVO trip, String token, HttpServletRequest request, Model model) {
+		Long tripId = trip.getTripId();
 		model.addAttribute("trip", trip);
+		model.addAttribute("myRole", trip.getMyRole()); // 멤버가 아니거나 로그인하지 않았으면 null
+		model.addAttribute("token", token);
 
-		// TODO(양지호): DayService가 develop에 들어오면 dayService.findDays(trip.getTripId())로 바꾼다.
-		model.addAttribute("days", service.getDays(trip.getTripId()));
+		// DAY 카드 목록 → trip/_days.jsp (양지호). DayVO에 dayId가 있어야 [DAY 삭제] 주소가 만들어진다
+		model.addAttribute("days", dayService.findDays(tripId));
+
+		// TODO(양지호): ScheduleService.findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다 (지도 · DAY 카드 일정).
+		model.addAttribute("schedules", Collections.emptyList());
+
+		// TODO(양지호): MemberService.summary(tripId) · findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다.
+		//              지금은 여행 정보에 이미 있는 OWNER 닉네임 · 멤버 수로 같은 이름(ownerNickname, otherCount)을 만들어 둔다.
+		Map<String, Object> summary = new HashMap<>();
+		summary.put("ownerNickname", trip.getOwnerNickname());
+		summary.put("otherCount", Math.max(trip.getMemberCount() - 1, 0));
+		model.addAttribute("summary", summary);
+		model.addAttribute("members", Collections.emptyList());
+
+		// TODO(김민정): LikeService.count(tripId) · isLiked(tripId, userId)가 develop에 들어오면 그것으로 바꾼다.
+		model.addAttribute("likeCount", 0);
+		model.addAttribute("liked", false);
 
 		// UC-016 1A. 공유 링크는 멤버에게만 보인다
 		if (trip.isMember()) {
