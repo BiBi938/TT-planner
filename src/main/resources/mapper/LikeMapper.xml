@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 좋아요 SQL (담당: 김민정, UC-021). namespace = LikeMapper 인터페이스의 전체 이름 -->
+<mapper namespace="com.ttplanner.mapper.LikeMapper">
+
+    <select id="count" resultType="int">
+        select count(*)
+          from trip_like
+         where trip_id = #{tripId}
+    </select>
+
+    <select id="isLiked" resultType="int">
+        select count(*)
+          from trip_like
+         where trip_id = #{tripId}
+           and user_id = #{userId}
+    </select>
+
+    <insert id="insertLike">
+        insert into trip_like (trip_id, user_id)
+        values (#{tripId}, #{userId})
+    </insert>
+
+    <delete id="deleteLike">
+        delete from trip_like
+         where trip_id = #{tripId}
+           and user_id  = #{userId}
+    </delete>
+
+    <!-- 비공개 여행이거나 삭제된 여행에는 좋아요할 수 없도록 서버에서 검사 (UC-021 1A) -->
+    <select id="isTripPublicAndActive" resultType="int">
+        select count(*)
+          from trip
+         where trip_id = #{tripId}
+           and scope   = 'PUBLIC'
+           and del_yn  = 'N'
+    </select>
+
+</mapper>

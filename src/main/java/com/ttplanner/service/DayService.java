@@ -28,4 +28,10 @@ public interface DayService {
 	// 날짜가 비었거나 거꾸로이거나, 30일 초과, 여행 없음, 전체 공개 여행의 일정이 0개가 되면 IllegalStateException
 	// 팀 연결 메서드(구성정의서 8장 나.) → 이름·매개변수 바꾸지 않음
 	public void syncDays(Long tripId, Date start, Date end);
+
+	// DAY 날짜 변경 (UC-012): 그 DAY가 newDate가 되도록 여행 시작일을 다시 계산한다
+	// → 모든 DAY 날짜와 여행 기간이 같은 만큼 이동 (DAY 개수 · 번호 · 일정은 그대로)
+	// 결과 문구 "DAY 2을 11/26로 옮겼습니다. 여행 기간이 11/25 ~ 11/27로 함께 바뀌었습니다."를 돌려줌
+	// 날짜가 비었거나, 여행 · DAY가 없으면 IllegalStateException
+	public String changeDayDate(Long tripId, Long dayId, Date newDate);
 }

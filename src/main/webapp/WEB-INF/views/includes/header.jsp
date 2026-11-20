@@ -54,7 +54,8 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <%-- TODO(박준성): 내 여행 목록 주소가 /trips가 아니면 아래 링크들과 UserController.MY_TRIPS_URL을 함께 바꾼다 --%>
+                <%-- 사이드바 주소 (구성정의서 v1.4 8장 나.): 내 여행 GET /trips (박준성), 공개 여행 GET /public/trips (윤아연),
+                     내 여행 통계 GET /settings/stats (송유림). /trips를 바꾸면 UserController.MY_TRIPS_URL도 함께 바꾼다 --%>
                 <a class="navbar-brand tt-brand" href="${empty sessionScope.loginUser ? '/public/trips' : '/trips'}">TT플래너</a>
             </div>
 

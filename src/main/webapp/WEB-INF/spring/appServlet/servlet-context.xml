@@ -22,6 +22,26 @@
 	</beans:bean>
 	
 	<context:component-scan base-package="com.ttplanner.controller" />
+
+	<!-- 로그인 검사 (UC-002, 담당: 윤아연)
+	     모든 주소에서 로그인했는지 확인하고, 아래 exclude-mapping 주소는 로그인 없이 쓸 수 있게 뺀다.
+	     여행 상세 GET /trips/{번호}(전체 공개 열람)는 LoginInterceptor 안에서 따로 통과시킨다. -->
+	<interceptors>
+		<interceptor>
+			<mapping path="/**" />
+			<exclude-mapping path="/" />
+			<exclude-mapping path="/resources/**" />
+			<exclude-mapping path="/user/login" />
+			<exclude-mapping path="/user/join" />
+			<exclude-mapping path="/user/logout" />
+			<exclude-mapping path="/api/users/check" />
+			<exclude-mapping path="/public/**" />
+			<exclude-mapping path="/s/**" />
+			<!-- 환경 확인용 게시판. Board 파일을 지울 때 이 줄도 지운다 -->
+			<exclude-mapping path="/board/**" />
+			<beans:bean class="com.ttplanner.interceptor.LoginInterceptor" />
+		</interceptor>
+	</interceptors>
 	
 	
 	

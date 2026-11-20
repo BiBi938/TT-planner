@@ -40,8 +40,8 @@
 		</div>
 	</div>
 
-	<%-- 공유 링크 열기 (S-01 5번): 코드를 넣고 [열기] → /s/{코드} (박준성, UC-010)
-	     없는 코드일 때의 안내("이 링크로 열 수 있는 여행이 없습니다.")는 /s/{코드} 쪽에서 보여 준다 --%>
+	<%-- 공유 링크 열기 (S-01 5번): 코드를 넣고 [열기] → GET /s/{token} (박준성, UC-005 · UC-016, 구성정의서 v1.4 8장 나.)
+	     없는 코드일 때의 안내는 /s/{token}(TripController) 쪽에서 보여 준다 --%>
 	<div class="panel panel-default">
 		<div class="panel-heading">공유 링크로 여행 열기</div>
 		<div class="panel-body">

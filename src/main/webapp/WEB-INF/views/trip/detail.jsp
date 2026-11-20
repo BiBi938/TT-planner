@@ -1,13 +1,12 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt"%>
 <%--
   S-05 여행 정보 (UC-005 여행 열람) · 담당: 박준성 — 이 파일은 박준성만 수정한다.
   GET /trips/{번호}   → TripController.detail()
   GET /s/{공유코드}   → TripController.shared()   (공유 링크, 로그인 없이)
   함께 처리: UC-009 여행 정보 수정, UC-010 여행 삭제, UC-015 공개 범위 설정, UC-016 공유 링크 복사
 
-  model: trip(TripVO), days(DAY 목록), shareUrl(멤버만), regionOptions, infoForm, periodForm,
+  model: trip(TripVO), myRole, days(List<DayVO>), schedules, summary, members, likeCount, liked, token(공유 링크로 열었을 때), shareUrl(멤버만), regionOptions, infoForm, periodForm,
          tripMsg(처리 결과), tripErrors(입력 오류), openDialog, periodConfirm
   다른 팀원 조각 (파일이 아직 없으면 그 자리만 비워 두고 화면은 그대로 뜬다)
     _days.jsp    DAY 카드 · 일정 (양지호)      _map.jsp   지도 (양지호)
@@ -24,7 +23,6 @@
 	.tt-share-url { max-width: 420px; display: inline-block; vertical-align: middle; }
 	.tt-member-summary { padding: 0; border: 0; background: none; border-bottom: 1px dashed #337ab7; }
 	.tt-manage { margin: 10px 0 20px; }
-	.tt-day-fallback { border-left: 6px solid #ccc; }
 </style>
 
 <%-- 처리 결과 (여행 생성 · 정보 저장 · 기간 변경 · 공개 범위 변경) --%>
@@ -128,8 +126,11 @@
 		<button type="button" class="btn btn-danger" data-toggle="modal" data-target="#deleteModal">여행 삭제</button>
 	</c:if>
 	<%-- 7B. 멤버가 아니거나 로그인하지 않아도 [내 여행으로 복사]와 좋아요는 보인다
-	     TODO(송유림): 여행 복사 주소가 /trips/{번호}/copy (GET)이 아니면 알려 주세요 --%>
-	<a class="btn btn-default" href="/trips/<c:out value='${trip.tripId}'/>/copy">내 여행으로 복사</a>
+	     공유 링크(/s/{token})로 열었으면 ?token=…을 붙인다 → 복사 쪽(송유림)이 비공개 여행도 허용 --%>
+	<c:url var="copyUrl" value="/trips/${trip.tripId}/copy">
+		<c:if test="${not empty token}"><c:param name="token" value="${token}"/></c:if>
+	</c:url>
+	<a class="btn btn-default" href="<c:out value='${copyUrl}'/>">내 여행으로 복사</a>
 	<c:catch var="likeError"><jsp:include page="_like.jsp"/></c:catch>
 </div>
 
@@ -138,19 +139,7 @@
 <div class="row">
 	<%-- 5. DAY 카드와 일정 (양지호 _days.jsp) --%>
 	<div class="col-md-8">
-		<c:catch var="daysError"><jsp:include page="_days.jsp"/></c:catch>
-		<c:if test="${not empty daysError}">
-			<%-- TODO(양지호): _days.jsp가 develop에 들어오면 이 임시 목록은 보이지 않는다 --%>
-			<c:forEach items="${days}" var="day">
-				<div class="panel panel-default tt-day-fallback">
-					<div class="panel-body">
-						<strong>DAY <c:out value="${day.dayNo}"/></strong>
-						<span class="text-muted"><fmt:formatDate value="${day.dayDate}" pattern="M/d (E)"/></span>
-						&nbsp;·&nbsp; 일정 <c:out value="${day.scheduleCount}"/>개
-					</div>
-				</div>
-			</c:forEach>
-		</c:if>
+		<jsp:include page="_days.jsp"/>
 	</div>
 	<%-- 6. 지도 (양지호, UC-006) --%>
 	<div class="col-md-4">
