@@ -232,9 +232,11 @@ public class UserServiceImpl implements UserService {
 	 * 회원 탈퇴 (UC-024)
 	 * 여러 테이블을 함께 바꾸므로 @Transactional: 중간에 오류가 나면 모두 되돌린다.
 	 *
-	 * 1) 내가 OWNER인 여행 삭제 표시   → 박준성 담당 (TripService)  : 아직 메서드가 없어 임시 구현
-	 * 2) 참여 여행 · 초대 · 참여 요청 빼기 → 양지호 담당 (MemberService): 아직 메서드가 없어 임시 구현
-	 * 3) 회원 탈퇴 표시                 → UserMapper.withdraw (윤아연)
+	 * 1) 내가 OWNER인 여행 삭제 표시     → TripService.deleteByOwner(Long userId) → int  (박준성)
+	 * 2) 참여 여행 · 초대 · 참여 요청 빼기 → MemberService.deleteByUser(Long userId) → int (양지호)
+	 * 3) 회원 탈퇴 표시                   → UserMapper.withdraw (윤아연)
+	 * 1), 2)는 구성정의서 v1.4 8장 나. 연결 지점의 메서드다. 아직 develop에 없어서
+	 * 아래 deleteOwnedTrips(), leaveAllTrips()에 빈 값을 돌려주는 임시 구현으로 둔다 (8장 가.).
 	 */
 	@Transactional
 	@Override
@@ -249,9 +251,10 @@ public class UserServiceImpl implements UserService {
 
 	/**
 	 * 임시 구현: 아무것도 하지 않고 0을 돌려준다.
-	 * TODO(박준성): "회원이 OWNER인 여행을 모두 삭제 표시(DEL_YN = 'Y')"하는 TripService 메서드가 생기면
-	 *   여기서 그 메서드를 부른다. 메서드 이름 · 매개변수는 연결 지점 확정 회의에서 정한다.
-	 *   (schema.sql 규칙: 여행 행과 OWNER의 TRIP_MEMBER 행은 지우지 않는다 → 좋아요 · 통계 유지)
+	 * TODO(박준성): TripService.deleteByOwner(Long userId) → int 가 develop에 들어오면
+	 *   return tripService.deleteByOwner(userId); 로 바꾼다.
+	 *   회원이 OWNER인 여행을 모두 DEL_YN = 'Y'로 표시 (구성정의서 v1.4 8장 나.)
+	 *   여행 행과 OWNER의 TRIP_MEMBER 행은 지우지 않는다 → 좋아요 · 통계 유지 (6장 나.)
 	 */
 	private int deleteOwnedTrips(Long userId) {
 		return 0;
@@ -259,8 +262,9 @@ public class UserServiceImpl implements UserService {
 
 	/**
 	 * 임시 구현: 아무것도 하지 않고 0을 돌려준다.
-	 * TODO(양지호): "회원을 참여 중인 여행에서 빼고, 받은 초대 · 보낸 참여 요청도 지우는" MemberService 메서드가
-	 *   생기면 여기서 그 메서드를 부른다. (OWNER 행은 남긴다)
+	 * TODO(양지호): MemberService.deleteByUser(Long userId) → int 가 develop에 들어오면
+	 *   return memberService.deleteByUser(userId); 로 바꾼다.
+	 *   참여 중인 여행에서 빼고, 받은 초대 · 보낸 참여 요청을 지운다. OWNER 행은 남긴다 (구성정의서 v1.4 8장 나.)
 	 */
 	private int leaveAllTrips(Long userId) {
 		return 0;
