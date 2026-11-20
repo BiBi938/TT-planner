@@ -16,7 +16,8 @@ import lombok.extern.log4j.Log4j;
  * 공개 여행 검색 서비스 구현 (담당: 윤아연, UC-004)
  *
  * 좋아요 수는 카드 10장을 한 번의 SQL로 가져오려고 PublicTripMapper.xml에서 직접 센다.
- * (LikeService.count(김민정)를 카드마다 부르면 SQL이 10번 더 나간다.)
+ * (구성정의서 v1.4 8장 나.: 공개 여행 목록(UC-004)은 SQL로 직접 센다.
+ *  LikeService.count(김민정)는 여행 정보 화면(UC-005)에서 쓴다.)
  */
 @Log4j
 @Service
