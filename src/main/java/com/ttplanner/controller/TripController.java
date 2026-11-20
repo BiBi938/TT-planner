@@ -20,6 +20,7 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.ttplanner.service.DayService;
+import com.ttplanner.service.LikeService;
 import com.ttplanner.service.TripAccessException;
 import com.ttplanner.service.TripPeriodConfirmException;
 import com.ttplanner.service.TripService;
@@ -59,6 +60,8 @@ public class TripController {
 	private TripService service;
 
 	private DayService dayService; // DAY 목록 (양지호, UC-011 · UC-012)
+
+	private LikeService likeService; // 좋아요 수 · 내가 눌렀는지 (김민정, UC-021)
 
 	// ===================== UC-007 내 여행 =====================
 
@@ -134,7 +137,7 @@ public class TripController {
 		// DAY 카드 목록 → trip/_days.jsp (양지호). DayVO에 dayId가 있어야 [DAY 삭제] 주소가 만들어진다
 		model.addAttribute("days", dayService.findDays(tripId));
 
-		// TODO(양지호): ScheduleService.findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다 (지도 · DAY 카드 일정).
+		// TODO(송유림, UC-013): ScheduleService.findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다 (지도 · DAY 카드 일정).
 		model.addAttribute("schedules", Collections.emptyList());
 
 		// TODO(양지호): MemberService.summary(tripId) · findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다.
@@ -145,9 +148,12 @@ public class TripController {
 		model.addAttribute("summary", summary);
 		model.addAttribute("members", Collections.emptyList());
 
-		// TODO(김민정): LikeService.count(tripId) · isLiked(tripId, userId)가 develop에 들어오면 그것으로 바꾼다.
-		model.addAttribute("likeCount", 0);
-		model.addAttribute("liked", false);
+		// 좋아요 수 · 내가 눌렀는지 → trip/_like.jsp (김민정, UC-021)
+		// fillDetail은 session을 받지 않으므로 request에서 꺼낸다.
+		// getSession(false): 세션이 없으면 새로 만들지 않고 null → 비로그인 → isLiked는 false
+		Long userId = loginUserId(request.getSession(false));
+		model.addAttribute("likeCount", likeService.count(tripId));
+		model.addAttribute("liked", likeService.isLiked(tripId, userId));
 
 		// UC-016 1A. 공유 링크는 멤버에게만 보인다
 		if (trip.isMember()) {

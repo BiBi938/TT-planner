@@ -1,5 +1,7 @@
 package com.ttplanner.service;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,10 @@ public class DayServiceImpl implements DayService {
 
 	@Setter(onMethod_ = @Autowired)
 	private DayMapper mapper;
+
+	// 여행 시작일 저장 (박준성, UC-012 연결: TripService.changeStartDate)
+	@Setter(onMethod_ = @Autowired)
+	private TripService tripService;
 
 	@Override
 	public List<DayVO> findDays(Long tripId) {
@@ -100,5 +106,46 @@ public class DayServiceImpl implements DayService {
 		mapper.deleteDaySchedules(target);
 		mapper.deleteDay(target);
 		mapper.shiftDaysAfter(target);
+	}
+
+	@Transactional
+	@Override
+	public String changeDayDate(Long tripId, Long dayId, Date newDate) {
+		log.info("changeDayDate......" + tripId + ", DAY_ID " + dayId + " → " + newDate);
+
+		if (newDate == null) {
+			throw new IllegalStateException("날짜를 골라 주세요.");
+		}
+
+		// 1. 이 여행의 DAY 중에서 고른 DAY 찾기 (deleteDay와 같은 방식)
+		List<DayVO> days = mapper.findDays(tripId);
+		if (days.size() == 0) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+		DayVO target = null;
+		for (DayVO day : days) {
+			if (day.getDayId().equals(dayId)) {
+				target = day;
+			}
+		}
+		if (target == null) {
+			throw new IllegalStateException("DAY를 찾을 수 없습니다.");
+		}
+
+		// 2. 새 시작일 = 고른 날짜 - (DAY 번호 - 1)일   예) DAY 2를 11/26으로 → 11/25
+		long oneDay = 24L * 60 * 60 * 1000; // 하루 = 86,400,000 밀리초
+		Date newStart = new Date(newDate.getTime() - (target.getDayNo() - 1) * oneDay);
+
+		// 3. 시작일 저장 → DAY 날짜는 START_DATE + DAY_NO - 1 이라 모든 DAY가 함께 이동
+		tripService.changeStartDate(tripId, newStart);
+
+		// 4. 바뀐 DAY 목록으로 새 기간(첫 DAY ~ 마지막 DAY)을 구해 문구 만들기
+		List<DayVO> changed = mapper.findDays(tripId);
+		SimpleDateFormat format = new SimpleDateFormat("M/d");
+		String first = format.format(changed.get(0).getDayDate());
+		String last = format.format(changed.get(changed.size() - 1).getDayDate());
+
+		return "DAY " + target.getDayNo() + "을 " + format.format(newDate) + "로 옮겼습니다. "
+				+ "여행 기간이 " + first + " ~ " + last + "로 함께 바뀌었습니다.";
 	}
 }
