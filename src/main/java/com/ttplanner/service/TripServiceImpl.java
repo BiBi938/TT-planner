@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,9 @@ import lombok.extern.log4j.Log4j;
 @Service
 @AllArgsConstructor
 public class TripServiceImpl implements TripService {
+
+	/** TRIP.TITLE 컬럼 길이. 입력 창은 50자(TITLE_MAX_LENGTH)지만 복사한 여행은 '원본 (복사)'라 길어질 수 있다 */
+	private static final int TITLE_DB_LENGTH = 60;
 
 	private TripMapper mapper;
 
@@ -56,17 +60,11 @@ public class TripServiceImpl implements TripService {
 		LocalDate start = period[0];
 		int dayCount = days(period[0], period[1]);
 
-		// 6. 비공개 여행을 만들고 회원을 OWNER로 등록
-		// 8. 공유 링크는 여행을 만들 때 UUID로 자동 생성 (재발급 없음)
+		// 6. 비공개 여행을 만들고 회원을 OWNER로 등록, 8. 공유 링크 자동 생성
 		TripVO trip = new TripVO();
 		trip.setTitle(title);
 		trip.setStartDate(java.sql.Date.valueOf(start));
-		trip.setShareToken(UUID.randomUUID().toString());
-		mapper.insert(trip); // tripId가 seq_trip 값으로 채워진다
-
-		Long tripId = trip.getTripId();
-		mapper.insertRegions(tripId, regions);
-		mapper.insertOwner(tripId, userId);
+		Long tripId = create(trip, regions, userId);
 
 		// 7. 여행 기간의 날짜마다 빈 DAY를 만든다
 		// TODO(양지호): DayService.syncDays(tripId, start, end)가 develop에 들어오면 아래 반복문을 그 호출로 바꾼다.
@@ -74,6 +72,71 @@ public class TripServiceImpl implements TripService {
 			mapper.insertDay(tripId, dayNo);
 		}
 		return tripId;
+	}
+
+	/** 연결 지점: TRIP · 지역 · OWNER · 공유 링크까지 만들고 DAY는 만들지 않는다 (구성정의서 8장 나.) */
+	@Transactional
+	@Override
+	public Long create(TripVO trip, List<String> regions, Long ownerUserId) {
+		log.info("create(trip)......" + trip.getTitle() + ", owner=" + ownerUserId);
+		Map<String, String> errors = new LinkedHashMap<>();
+		String title = trip.getTitle() == null ? "" : trip.getTitle().trim();
+		if (title.isEmpty()) {
+			errors.put("title", "여행 제목을 입력하세요.");
+		} else if (title.length() > TITLE_DB_LENGTH) {
+			errors.put("title", "여행 제목은 " + TITLE_DB_LENGTH + "자 이하로 입력하세요.");
+		}
+		if (trip.getStartDate() == null) {
+			errors.put("period", "시작일과 종료일을 모두 입력하세요.");
+		}
+		TripFormVO regionForm = new TripFormVO();
+		regionForm.setRegions(regions);
+		List<String> cleanRegions = checkRegions(regionForm, errors);
+		if (ownerUserId == null) {
+			throw new IllegalArgumentException("여행을 만드는 회원(ownerUserId)이 없습니다.");
+		}
+		if (!errors.isEmpty()) {
+			throw new TripValidationException(errors);
+		}
+
+		trip.setTitle(title);
+		trip.setShareToken(UUID.randomUUID().toString()); // 공유 링크: 만들 때 자동 생성, 재발급 없음
+		mapper.insert(trip);                              // 공개 범위는 항상 비공개, tripId가 채워진다
+		mapper.insertRegions(trip.getTripId(), cleanRegions);
+		mapper.insertOwner(trip.getTripId(), ownerUserId);
+		return trip.getTripId();
+	}
+
+	@Override
+	public TripVO find(Long tripId) {
+		TripVO trip = tripId == null ? null : mapper.read(tripId);
+		return trip == null ? null : complete(trip, null);
+	}
+
+	@Override
+	public boolean canView(Long tripId, Long userId) {
+		TripVO trip = tripId == null ? null : mapper.read(tripId); // 삭제한 여행은 읽히지 않는다
+		if (trip == null) {
+			return false;
+		}
+		// TODO(양지호): MemberService.getRole이 develop에 들어오면 mapper.getRole 대신 그것을 쓴다.
+		return trip.isPublicScope() || (userId != null && mapper.getRole(tripId, userId) != null);
+	}
+
+	@Override
+	public TripVO findByToken(String token) {
+		if (isBlank(token)) {
+			return null;
+		}
+		TripVO trip = mapper.readByShareToken(token.trim());
+		return trip == null ? null : complete(trip, null);
+	}
+
+	@Transactional
+	@Override
+	public int deleteByOwner(Long userId) {
+		log.info("deleteByOwner......" + userId);
+		return userId == null ? 0 : mapper.deleteByOwner(userId);
 	}
 
 	// ===================== UC-005 여행 열람 =====================
@@ -108,12 +171,6 @@ public class TripServiceImpl implements TripService {
 		trip.setMyRole(role);
 		trip.setRegions(mapper.getRegions(trip.getTripId()));
 		return trip;
-	}
-
-	@Override
-	public List<Map<String, Object>> getDays(Long tripId) {
-		// TODO(양지호): DayService.findDays(tripId)가 develop에 들어오면 지운다.
-		return mapper.getDays(tripId);
 	}
 
 	// ===================== UC-009 여행 정보 수정 =====================
@@ -182,6 +239,14 @@ public class TripServiceImpl implements TripService {
 			return dayRange(oldCount + 1, newCount) + "이 추가되었습니다.";
 		}
 		return "여행 정보를 저장했습니다."; // 일수는 같고 날짜만 이동
+	}
+
+	// ===================== UC-012 연결: 여행 시작일 변경 (양지호 요청) =====================
+
+	@Override
+	public void changeStartDate(Long tripId, Date startDate) {
+		log.info("changeStartDate......" + tripId + " → " + startDate);
+		mapper.updateStartDate(tripId, startDate); // 이미 있는 SQL 그대로 (권한 검사 · DAY 처리는 호출하는 쪽에서)
 	}
 
 	// ===================== UC-015 공개 범위 설정 =====================

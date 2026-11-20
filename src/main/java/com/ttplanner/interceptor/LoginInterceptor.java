@@ -14,8 +14,13 @@ import lombok.extern.log4j.Log4j;
  * 로그인 검사 (담당: 윤아연, UC-002 · SFR-001)
  *
  * servlet-context.xml에 등록되어 모든 요청보다 먼저 실행된다.
- * 로그인 없이 쓸 수 있는 주소(로그인, 회원가입, 공개 여행 검색, 공유 링크 /s/** 등)는
- * servlet-context.xml의 exclude-mapping에 적혀 있어서 여기까지 오지 않는다.
+ * 로그인 없이 쓸 수 있는 주소는 구성정의서 v1.4 5장 다.의 "로그인, 회원가입, 공개 여행 검색 · 열람, 공유 링크"다.
+ *   servlet-context.xml의 exclude-mapping으로 빼는 주소: / , /resources/** , /user/login, /user/join, /user/logout,
+ *     /api/users/check, /public/** , /s/** , /board/**(환경 확인용) → 여기까지 오지 않는다.
+ *   여기서 따로 통과시키는 주소: GET /trips/{번호} (공개 여행 열람. 볼 수 있는지는 TripController가 검사)
+ *
+ * Ajax(/api/**)는 401 + {"message":"로그인이 필요합니다.","loginUrl":"/user/login"}을 돌려준다.
+ * LikeController(김민정)가 직접 돌려주는 401과 같은 형식이라 _like.jsp는 어느 쪽이든 같게 처리한다.
  *
  * 흐름 예) 비로그인 사용자가 GET /settings/mypage
  *   → preHandle(): 세션에 loginUser 없음
@@ -34,7 +39,8 @@ public class LoginInterceptor extends HandlerInterceptorAdapter {
 
 	/**
 	 * 여행 상세 GET /trips/{번호}는 로그인 없이도 연다 (전체 공개 여행 열람, UC-004 → UC-005).
-	 * 볼 수 있는 여행인지(공개 범위 · 멤버 여부)는 TripController(박준성)가 검사한다.
+	 * 볼 수 있는 여행인지(공개 범위 · 멤버 여부)는 TripController(박준성)가 검사하고, 못 보면 trip/denied.jsp를 보여 준다.
+	 * 수정 · 삭제 등 POST /trips/{번호}/... 는 로그인이 필요하다.
 	 */
 	private static final Pattern PUBLIC_TRIP_DETAIL = Pattern.compile("^/trips/[0-9]+$");
 

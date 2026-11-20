@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace = MemberMapper 인터페이스의 전체 이름 -->
+<mapper namespace="com.ttplanner.mapper.MemberMapper">
+
+	<!-- 이 여행에서 이 회원의 권한 (참여 중인 멤버만)
+	     - 조건에 맞는 줄은 많아야 1줄 (TRIP_ID + USER_ID가 PK라 겹칠 수 없음)
+	     - 1줄이면 그 줄의 ROLE, 0줄이면 MyBatis가 null을 돌려준다
+	     - INVITED(초대 중) · REQUESTED(참여 요청 중)는 아직 멤버가 아니므로 제외 -->
+	<select id="getRole" resultType="string">
+		select role
+		from trip_member
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+		  and status = 'JOINED'
+	</select>
+
+</mapper>
