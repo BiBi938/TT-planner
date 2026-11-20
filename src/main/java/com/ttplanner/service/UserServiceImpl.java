@@ -54,6 +54,10 @@ public class UserServiceImpl implements UserService {
 	@Setter(onMethod_ = @Autowired)
 	private UserMapper mapper;
 
+	/** 회원 탈퇴 때 내가 OWNER인 여행 삭제 표시 (박준성, 구성정의서 8장 나.) */
+	@Setter(onMethod_ = @Autowired)
+	private TripService tripService;
+
 	// ------------------------------------------------------------ 회원가입 (UC-001)
 
 	@Override
@@ -235,8 +239,9 @@ public class UserServiceImpl implements UserService {
 	 * 1) 내가 OWNER인 여행 삭제 표시     → TripService.deleteByOwner(Long userId) → int  (박준성)
 	 * 2) 참여 여행 · 초대 · 참여 요청 빼기 → MemberService.deleteByUser(Long userId) → int (양지호)
 	 * 3) 회원 탈퇴 표시                   → UserMapper.withdraw (윤아연)
-	 * 1), 2)는 구성정의서 v1.4 8장 나. 연결 지점의 메서드다. 아직 develop에 없어서
-	 * 아래 deleteOwnedTrips(), leaveAllTrips()에 빈 값을 돌려주는 임시 구현으로 둔다 (8장 가.).
+	 * 1), 2)는 구성정의서 v1.4 8장 나. 연결 지점의 메서드다.
+	 * 1)은 develop에 들어와서 deleteOwnedTrips()가 TripService.deleteByOwner를 호출한다.
+	 * 2)는 아직 develop에 없어서 leaveAllTrips()에 빈 값을 돌려주는 임시 구현으로 둔다 (8장 가.).
 	 */
 	@Transactional
 	@Override
@@ -250,14 +255,12 @@ public class UserServiceImpl implements UserService {
 	}
 
 	/**
-	 * 임시 구현: 아무것도 하지 않고 0을 돌려준다.
-	 * TODO(박준성): TripService.deleteByOwner(Long userId) → int 가 develop에 들어오면
-	 *   return tripService.deleteByOwner(userId); 로 바꾼다.
-	 *   회원이 OWNER인 여행을 모두 DEL_YN = 'Y'로 표시 (구성정의서 v1.4 8장 나.)
-	 *   여행 행과 OWNER의 TRIP_MEMBER 행은 지우지 않는다 → 좋아요 · 통계 유지 (6장 나.)
+	 * 회원이 OWNER인 여행을 모두 DEL_YN = 'Y'로 표시 → 삭제 표시한 여행 수 (TripService.deleteByOwner, 박준성)
+	 * 여행 행과 OWNER의 TRIP_MEMBER 행은 지우지 않는다 → 좋아요 · 통계 유지 (6장 나.)
+	 * withdraw()의 @Transactional 안에서 불리므로, 뒤 단계에서 오류가 나면 함께 되돌려진다.
 	 */
 	private int deleteOwnedTrips(Long userId) {
-		return 0;
+		return tripService.deleteByOwner(userId);
 	}
 
 	/**
