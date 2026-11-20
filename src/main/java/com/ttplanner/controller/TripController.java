@@ -137,7 +137,7 @@ public class TripController {
 		// DAY 카드 목록 → trip/_days.jsp (양지호). DayVO에 dayId가 있어야 [DAY 삭제] 주소가 만들어진다
 		model.addAttribute("days", dayService.findDays(tripId));
 
-		// TODO(양지호): ScheduleService.findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다 (지도 · DAY 카드 일정).
+		// TODO(송유림, UC-013): ScheduleService.findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다 (지도 · DAY 카드 일정).
 		model.addAttribute("schedules", Collections.emptyList());
 
 		// TODO(양지호): MemberService.summary(tripId) · findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다.

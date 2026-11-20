@@ -30,7 +30,7 @@ public interface CopyMapper {
 	List<String> getSourceRegions(Long tripId);
 
 	// ===== insertDays용 SQL 3개 =====
-	// TODO(양지호): DayService.insertDays가 develop에 들어오면 아래 3개를 DayMapper로 옮기고 여기서 지운다.
+	// TODO(송유림): feature/yurim-insertdays에서 아래 3개를 DayMapper로 옮겨 DayService.insertDays를 만들고 여기서 지운다.
 
 	// ① 넣을 자리(position) 뒤의 DAY 번호를 count만큼 민다
 	int shiftDaysFrom(@Param("tripId") Long tripId, @Param("position") int position, @Param("count") int count);

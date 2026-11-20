@@ -67,7 +67,7 @@
 	</select>
 
 	<!-- ================= insertDays용 SQL 3개 =================
-	     TODO(양지호): DayService.insertDays가 develop에 들어오면 아래 3개를 DayMapper.xml로 옮기고 여기서 지운다.
+	     TODO(송유림): feature/yurim-insertdays에서 아래 3개를 DayMapper.xml로 옮기고 여기서 지운다.
 
 	     예) DAY 1 · 2 · 3 여행에 DAY 2개를 position = 1 (DAY 1 뒤)에 넣기
 	       ① shiftDaysFrom  : DAY 2 · 3 → DAY 4 · 5 (1보다 뒤를 2만큼 밈)

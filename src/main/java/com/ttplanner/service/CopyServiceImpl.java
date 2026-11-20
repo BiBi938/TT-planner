@@ -154,8 +154,8 @@ public class CopyServiceImpl implements CopyService {
 	 * 30일 초과는 이 메서드 안에서 막는다.
 	 * @return 복사한 일정 수
 	 *
-	 * TODO(양지호): DayService.insertDays(Long targetTripId, int position, List<Long> sourceDayIds)가
-	 *               develop에 들어오면 호출하는 곳을 dayService.insertDays(...)로 바꾸고,
+	 * TODO(송유림): feature/yurim-insertdays에서 DayService.insertDays(Long targetTripId, int position, List<Long> sourceDayIds)를
+	 *               만들고, 호출하는 곳을 dayService.insertDays(...)로 바꾸고,
 	 *               이 메서드와 CopyMapper.xml의 insertDays용 SQL 3개를 지운다.
 	 *               (이 메서드 내용과 SQL 3개를 그대로 옮겨 가면 된다)
 	 */

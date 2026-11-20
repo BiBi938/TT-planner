@@ -79,7 +79,8 @@
 			</form>
 			</c:if>
 
-			<%-- TODO(양지호): UC-013 일정 목록, UC-006 [지도] 버튼 자리 --%>
+			<%-- TODO(송유림): UC-013 일정 목록 자리 (trip/_schedules.jsp 조각을 include) --%>
+			<%-- TODO(윤아연): UC-006 [지도] 버튼 자리 --%>
 		</div>
 	</div>
 </c:forEach>
