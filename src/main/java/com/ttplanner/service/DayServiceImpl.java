@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ttplanner.mapper.DayMapper;
-import com.ttplanner.mapper.TripMapper;
 import com.ttplanner.vo.DayVO;
 
 import lombok.Setter;
@@ -25,10 +24,9 @@ public class DayServiceImpl implements DayService {
 	@Setter(onMethod_ = @Autowired)
 	private DayMapper mapper;
 
-	// TODO(박준성): TripService.changeStartDate(tripId, startDate)가 생기면
-	//              tripService.changeStartDate로 바꾸고 이 필드는 지운다 (UC-012 시작일 저장)
+	// 여행 시작일 저장 (박준성, UC-012 연결: TripService.changeStartDate)
 	@Setter(onMethod_ = @Autowired)
-	private TripMapper tripMapper;
+	private TripService tripService;
 
 	@Override
 	public List<DayVO> findDays(Long tripId) {
@@ -139,7 +137,7 @@ public class DayServiceImpl implements DayService {
 		Date newStart = new Date(newDate.getTime() - (target.getDayNo() - 1) * oneDay);
 
 		// 3. 시작일 저장 → DAY 날짜는 START_DATE + DAY_NO - 1 이라 모든 DAY가 함께 이동
-		tripMapper.updateStartDate(tripId, newStart); // TODO(박준성): tripService.changeStartDate로 교체
+		tripService.changeStartDate(tripId, newStart);
 
 		// 4. 바뀐 DAY 목록으로 새 기간(첫 DAY ~ 마지막 DAY)을 구해 문구 만들기
 		List<DayVO> changed = mapper.findDays(tripId);
