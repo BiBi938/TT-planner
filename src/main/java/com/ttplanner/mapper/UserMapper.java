@@ -41,6 +41,7 @@ public interface UserMapper {
 	int countJoinedTrips(Long userId);
 
 	/** 탈퇴: 회원 행을 탈퇴 표시하고 닉네임 · 이메일을 '탈퇴회원' + USER_ID로 바꾼다
-	 *  (내 여행 삭제 · 멤버 제외는 다른 팀원 담당 → UserServiceImpl.withdraw()의 TODO 참고) */
+	 *  (OWNER 여행 삭제는 TripService.deleteByOwner(박준성), 멤버 제외는 MemberService.deleteByUser(양지호)
+	 *   → UserServiceImpl.withdraw() 참고, 구성정의서 v1.4 8장 나.) */
 	int withdraw(Long userId);
 }

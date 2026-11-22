@@ -8,7 +8,7 @@ import lombok.Data;
  *
  * 로그인하면 이 객체가 세션에 "loginUser" 이름으로 저장된다 (비밀번호는 지운 상태).
  * 다른 팀원은 컨트롤러에서 다음처럼 꺼내 쓴다.
- *   UserVO loginUser = (UserVO) session.getAttribute("loginUser");
+ *   UserVO loginUser = (UserVO) session.getAttribute(LoginInterceptor.LOGIN_USER);  // "loginUser"
  *   Long userId = loginUser.getUserId();
  * JSP에서는 ${sessionScope.loginUser.nickname}
  */

@@ -23,7 +23,8 @@ import lombok.extern.log4j.Log4j;
  *  → public/list.jsp
  *
  * 로그인하지 않아도 이용할 수 있다 (servlet-context.xml에서 /public/** 은 LoginInterceptor 제외).
- * 카드를 누르면 여행 상세 /trips/{tripId}(박준성, UC-005)로 이동한다.
+ * 카드를 누르면 여행 상세 GET /trips/{tripId}(박준성, UC-005)로 이동한다 (구성정의서 v1.4 8장 나.).
+ * 볼 수 없는 여행이면 TripController가 trip/denied.jsp를 보여 준다.
  */
 @Controller
 @Log4j

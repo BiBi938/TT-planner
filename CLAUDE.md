@@ -70,13 +70,14 @@ src/main/webapp/WEB-INF/views/            trip/, user/, settings/ ... (공통: i
 | 담당 | UC | 소유 파일 (예시) |
 |---|---|---|
 | 박준성 | 005, 007, 008, 009, 010, 015, 016 | `trip/detail.jsp`(단독 수정), TripController, TripService, TripMapper, `db/schema.sql` |
-| 양지호 | 006, 011~014, 017~019, 025~027 | DayService, ScheduleService, MemberService와 각 Mapper, `trip/_days.jsp`, `trip/_members.jsp`, 지도 조각 |
-| 윤아연 | 001~004, 023, 024 | UserController, UserService, LoginInterceptor, `user/*.jsp`, 공개 여행 검색 화면, `includes/` 레이아웃 |
-| 송유림 (PM) | 020, 022 | CopyService, StatsService, 복사·통계 화면 |
+| 양지호 | 011, 012, 017~019, 025~027 | DayService, MemberService와 각 Mapper, `trip/_days.jsp`, `trip/_members.jsp` |
+| 윤아연 | 001~004, 006, 014, 023, 024 | UserController, UserService, LoginInterceptor, `user/*.jsp`, 공개 여행 검색 화면, `includes/` 레이아웃, 지도 조각 `trip/_map.jsp`, 장소 검색 |
+| 송유림 (PM) | 013, 020, 022 | ScheduleService와 Mapper(일정 관리·순서 변경 API), CopyService, StatsService, 복사·통계 화면 |
 | 김민정 (QA) | 021 | LikeService, 좋아요 버튼 조각, `src/test/` 테스트 코드 |
 
 - `trip/detail.jsp`는 박준성만 수정한다. 다른 사람은 자기 `_xxx.jsp` 조각만 만들고 `<jsp:include>`로 넣어 달라고 요청한다.
 - 팀원 간 연결 메서드(구성정의서 8장 나.)는 이름과 매개변수를 임의로 바꾸지 않는다.
+- 2026-11-19 담당 재배분(구성정의서 v1.5): UC-013 → 송유림, UC-006 · 014 → 윤아연, 나머지는 양지호 유지.
 
 ## 5. Git 규칙 (사용자가 직접 실행)
 

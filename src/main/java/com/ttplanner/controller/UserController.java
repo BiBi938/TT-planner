@@ -33,16 +33,20 @@ import lombok.extern.log4j.Log4j;
  *   UC-023 마이페이지     GET/POST /settings/mypage, POST /settings/password → settings/mypage.jsp
  *   UC-024 회원 탈퇴      GET /settings/withdraw, POST /settings/withdraw/check, POST /settings/withdraw
  *                                                           → settings/withdraw.jsp
+ *
+ * 로그인 회원은 세션 LoginInterceptor.LOGIN_USER("loginUser")에 UserVO로 넣는다.
+ * 다른 팀원은 (UserVO) session.getAttribute(LoginInterceptor.LOGIN_USER)로 꺼낸다.
+ *
+ * 로그인 화면 주소에 붙는 값 (다른 팀원이 로그인 화면으로 보낼 때 쓴다)
+ *   ?required        "로그인이 필요합니다." 표시     예) TripController, DayController
+ *   ?back=/주소       로그인 후 그 주소로 돌아감     예) CopyController(?required&back=…), StatsController, _like.jsp
  */
 @Controller
 @Log4j
 @AllArgsConstructor
 public class UserController {
 
-	/**
-	 * 로그인 후 첫 화면(내 여행, S-03) 주소.
-	 * TODO(박준성): 내 여행 목록 주소가 확정되면 여기만 바꾼다.
-	 */
+	/** 로그인 후 첫 화면: 내 여행 목록 GET /trips (S-03, 박준성, 구성정의서 v1.4 8장 나.) */
 	private static final String MY_TRIPS_URL = "/trips";
 
 	/** 탈퇴 비밀번호 확인 후 [탈퇴]를 눌러야 하는 제한 시간 (5분) */

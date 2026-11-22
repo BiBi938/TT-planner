@@ -2,9 +2,9 @@ package com.ttplanner.vo;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+
+import com.ttplanner.service.TripService;
 
 import lombok.Data;
 
@@ -19,10 +19,11 @@ public class PublicTripCriteria {
 
 	public static final int PAGE_SIZE = 10;
 
-	/** 지역 목록: schema.sql의 ck_trip_region_region과 같은 17개 시 · 도 */
-	public static final List<String> REGIONS = Collections.unmodifiableList(Arrays.asList(
-			"서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기",
-			"강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"));
+	/**
+	 * 지역 목록: 기준 목록 TripService.REGIONS(박준성)를 그대로 가져다 쓴다.
+	 * 지역을 바꿀 때는 TripService.REGIONS와 schema.sql(ck_trip_region_region)만 고친다.
+	 */
+	public static final List<String> REGIONS = TripService.REGIONS;
 
 	private String keyword;  // 여행 제목 검색어
 	private String region;   // 지역 1개 (비어 있으면 전체)
