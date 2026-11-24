@@ -26,7 +26,7 @@ B팀 5명이 함께 쓰는 규칙이다. 각자의 이름과 담당은 `CLAUDE.l
 - JSP + JSTL 1.2, SB Admin 2 (Bootstrap 3.4.1, jQuery 3.1.0)
 - Oracle 21c XE, MyBatis 3.5.10 + mybatis-spring 2.0.7, HikariCP
 - Lombok 1.18.30, log4j 1.2 (`@Log4j`), JUnit 4.13.2 (`@RunWith(SpringJUnit4ClassRunner.class)`)
-- Ajax는 아래 4곳만: 일정 순서 변경(UC-013), 멤버 권한 변경(UC-018), 좋아요(UC-021), 닉네임·이메일 중복 확인(UC-001, 023). 이 외에는 폼 제출 + 화면 이동으로 처리한다.
+- Ajax는 아래 5곳만: 일정 순서 변경(UC-013), 멤버 초대 회원 검색(UC-017), 멤버 권한 변경(UC-018), 좋아요(UC-021), 닉네임·이메일 중복 확인(UC-001, 023). 이 외에는 폼 제출 + 화면 이동으로 처리한다.
 - 드래그: SortableJS, 지도: 카카오맵 JavaScript API v2
 
 ## 3. 코드 규칙

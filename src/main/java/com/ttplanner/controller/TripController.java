@@ -1,6 +1,5 @@
 package com.ttplanner.controller;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -8,7 +7,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,8 +17,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.ttplanner.interceptor.LoginInterceptor;
 import com.ttplanner.service.DayService;
 import com.ttplanner.service.LikeService;
+import com.ttplanner.service.MemberService;
 import com.ttplanner.service.ScheduleService;
 import com.ttplanner.service.TripAccessException;
 import com.ttplanner.service.TripPeriodConfirmException;
@@ -28,6 +28,7 @@ import com.ttplanner.service.TripService;
 import com.ttplanner.service.TripValidationException;
 import com.ttplanner.vo.TripFormVO;
 import com.ttplanner.vo.TripVO;
+import com.ttplanner.vo.UserVO;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j;
@@ -52,9 +53,6 @@ import lombok.extern.log4j.Log4j;
 @AllArgsConstructor
 public class TripController {
 
-	/** LoginInterceptor · UserController(윤아연)가 로그인 회원(UserVO)을 담는 세션 이름 */
-	private static final String LOGIN_USER = "loginUser";
-
 	/** 로그인이 필요할 때 보내는 주소 (로그인 화면에 "로그인이 필요합니다." 표시) */
 	private static final String LOGIN_REQUIRED = "redirect:/user/login?required";
 
@@ -65,6 +63,8 @@ public class TripController {
 	private LikeService likeService; // 좋아요 수 · 내가 눌렀는지 (김민정, UC-021)
 
 	private ScheduleService scheduleService; // 일정 목록 (송유림, UC-013)
+
+	private MemberService memberService; // 멤버 목록 (양지호, UC-017)
 
 	// ===================== UC-007 내 여행 =====================
 
@@ -143,13 +143,15 @@ public class TripController {
 		// 일정 목록 → trip/_schedules.jsp, trip/_map.jsp (송유림, UC-013). DAY 번호 → SLOT_NO 순
 		model.addAttribute("schedules", scheduleService.findByTrip(tripId));
 
-		// TODO(양지호): MemberService.summary(tripId) · findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다.
+		// TODO(양지호): MemberService.summary(tripId)가 develop에 들어오면 그것으로 바꾼다.
 		//              지금은 여행 정보에 이미 있는 OWNER 닉네임 · 멤버 수로 같은 이름(ownerNickname, otherCount)을 만들어 둔다.
 		Map<String, Object> summary = new HashMap<>();
 		summary.put("ownerNickname", trip.getOwnerNickname());
 		summary.put("otherCount", Math.max(trip.getMemberCount() - 1, 0));
 		model.addAttribute("summary", summary);
-		model.addAttribute("members", Collections.emptyList());
+
+		// 멤버 목록 → trip/_members.jsp (양지호, UC-017). 멤버에게만 보이는지는 detail.jsp(trip.member)에서 정한다
+		model.addAttribute("members", memberService.findByTrip(tripId));
 
 		// 좋아요 수 · 내가 눌렀는지 → trip/_like.jsp (김민정, UC-021)
 		// fillDetail은 session을 받지 않으므로 request에서 꺼낸다.
@@ -266,16 +268,14 @@ public class TripController {
 
 	/**
 	 * 로그인 회원 번호. 로그인하지 않았으면 null
-	 * TODO(윤아연): UserVO가 develop에 들어오면 ((UserVO) session.getAttribute("loginUser")).getUserId()로 바꾼다.
-	 *              지금은 UserVO 클래스가 develop에 없어서, 이름으로 userId 값만 꺼낸다.
+	 * (로그인하면 UserController(윤아연)가 세션 "loginUser"(LoginInterceptor.LOGIN_USER)에 UserVO를 넣는다)
 	 */
 	private Long loginUserId(HttpSession session) {
-		Object loginUser = session == null ? null : session.getAttribute(LOGIN_USER);
-		if (loginUser == null) {
-			return null;
+		Object loginUser = session == null ? null : session.getAttribute(LoginInterceptor.LOGIN_USER);
+		if (loginUser instanceof UserVO) {
+			return ((UserVO) loginUser).getUserId();
 		}
-		Object userId = new BeanWrapperImpl(loginUser).getPropertyValue("userId");
-		return userId == null ? null : ((Number) userId).longValue();
+		return null;
 	}
 
 	/** "http://localhost:8080" (+ 컨텍스트 경로) */

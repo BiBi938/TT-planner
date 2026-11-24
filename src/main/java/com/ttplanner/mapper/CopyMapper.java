@@ -20,14 +20,7 @@ public interface CopyMapper {
 	// 고른 DAY_ID들의 DAY 정보 (삭제한 여행의 DAY는 빠진다). 여행 → DAY 번호 순
 	List<CopyDayVO> getSourceDays(@Param("dayIds") List<Long> dayIds);
 
-	// ===== 복사한 DAY로 새 여행 (원본 여행의 제목 · 지역) =====
-	// TODO(박준성): TripService.find(tripId)(구성정의서 8장 나.)가 develop에 들어오면 그것으로 바꾸고 아래 2개를 지운다.
-
-	// 원본 여행 제목
-	String getSourceTitle(Long tripId);
-
-	// 원본 여행 지역 목록
-	List<String> getSourceRegions(Long tripId);
+	// 복사한 DAY로 새 여행을 만들 때 원본 제목 · 지역은 TripService.find(박준성)로 가져온다 (임시 SQL 2개는 지움)
 
 	// ===== insertDays용 SQL 3개 =====
 	// TODO(송유림): feature/yurim-insertdays에서 아래 3개를 DayMapper로 옮겨 DayService.insertDays를 만들고 여기서 지운다.

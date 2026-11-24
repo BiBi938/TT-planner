@@ -58,9 +58,5 @@ public interface TripMapper {
 
 	int countSchedulesAfter(@Param("tripId") Long tripId, @Param("dayNo") int dayNo);
 
-	// ---------- DAY (임시) ----------
-	// TODO(양지호): DayService.syncDays(tripId, start, end)가 생기면 여행 생성 · 기간 변경에서 그것을 쓰고 아래 SQL은 지운다.
-	int insertDay(@Param("tripId") Long tripId, @Param("dayNo") int dayNo);
-
-	int deleteDaysAfter(@Param("tripId") Long tripId, @Param("dayNo") int dayNo);
+	// DAY 추가 · 삭제는 DayService.syncDays(양지호)가 한다 (임시 SQL insertDay · deleteDaysAfter는 지움)
 }

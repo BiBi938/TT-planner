@@ -178,18 +178,6 @@
 		   and d.day_no &gt; #{dayNo}
 	</select>
 
-	<!-- ================= DAY (임시, TODO 양지호) ================= -->
-
-	<insert id="insertDay">
-		insert into trip_day (day_id, trip_id, day_no)
-		values (seq_day.nextval, #{tripId}, #{dayNo})
-	</insert>
-
-	<!-- 그 DAY의 일정은 schedule의 on delete cascade로 함께 지워진다 -->
-	<delete id="deleteDaysAfter">
-		delete from trip_day
-		 where trip_id = #{tripId}
-		   and day_no &gt; #{dayNo}
-	</delete>
+	<!-- DAY 추가 · 삭제는 DayService.syncDays(양지호, DayMapper.xml)가 한다 -->
 
 </mapper>

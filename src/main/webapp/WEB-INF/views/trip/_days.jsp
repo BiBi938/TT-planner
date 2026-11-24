@@ -9,6 +9,7 @@
     - days : List<DayVO>  (TripController.detail에서 dayService.findDays(tripId)로 넣어 줌)
     - msg  : 처리 결과 문구 (DayController가 flash로 전달, 있을 때만)
     - trip : TripVO (trip.myRole로 버튼 표시 여부를 정함)
+    - 세션 copyDays : 여행 복사 중(송유림 UC-020)이면 맨 앞 · DAY 카드 사이 · 맨 끝에 [여기에 DAY 넣기] (화면설계서 S-09 ③)
 --%>
 
 <style>
@@ -19,6 +20,7 @@
 	.day-color-3    { border-left-color: #f39c12; }  /* 주황 */
 	.day-color-4    { border-left-color: #9b59b6; }  /* 보라 */
 	.day-card .day-title { font-weight: bold; margin-right: 10px; }
+	.tt-insert-day  { margin: -10px 0 10px; text-align: center; }  /* [여기에 DAY 넣기] (UC-020) */
 </style>
 
 <%-- 여행 번호와 DAY 개수 (DAY는 항상 1개 이상이므로 첫 DAY에서 여행 번호를 꺼낸다) --%>
@@ -28,11 +30,23 @@
 <%-- DAY를 추가·삭제할 수 있는지: OWNER, EDITOR만 (trip = TripController(박준성)가 넣는 여행, myRole = 내 권한) --%>
 <c:set var="canEditDays" value="${trip.myRole == 'OWNER' or trip.myRole == 'EDITOR'}" />
 
+<%-- [여기에 DAY 넣기]를 보일지: 여행 복사 중(세션 copyDays, 송유림 UC-020)이고 내가 OWNER · EDITOR일 때만
+     position = "이 DAY 뒤" (0 = 맨 앞) → POST /trips/{tripId}/copy/insert → CopyController.insert() --%>
+<c:set var="canInsertDays" value="${not empty sessionScope.copyDays and canEditDays}" />
+
 <%-- 처리 결과 문구 (DAY 추가·삭제 후 한 번만 보임) --%>
 <c:if test="${not empty msg}">
 	<div class="alert alert-info">
 		<c:out value="${msg}" />
 	</div>
+</c:if>
+
+<%-- [여기에 DAY 넣기] 맨 앞 (position 0 → 복사한 DAY가 DAY 1부터 들어가고 기존 DAY는 뒤로 밀림) --%>
+<c:if test="${canInsertDays}">
+<form method="post" action="/trips/<c:out value='${tripId}'/>/copy/insert" class="tt-insert-day" style="margin-top: 0;">
+	<input type="hidden" name="position" value="0">
+	<button type="submit" class="btn btn-success btn-xs">여기에 DAY 넣기 (맨 앞)</button>
+</form>
 </c:if>
 
 <%-- DAY 카드 목록 --%>
@@ -84,6 +98,14 @@
 			<%-- TODO(윤아연): UC-006 [지도] 버튼 자리 --%>
 		</div>
 	</div>
+
+	<%-- [여기에 DAY 넣기] 이 DAY 뒤 (카드 사이, 마지막 DAY 뒤면 맨 끝) --%>
+	<c:if test="${canInsertDays}">
+	<form method="post" action="/trips/<c:out value='${tripId}'/>/copy/insert" class="tt-insert-day">
+		<input type="hidden" name="position" value="<c:out value='${day.dayNo}'/>">
+		<button type="submit" class="btn btn-success btn-xs">여기에 DAY 넣기 (DAY <c:out value="${day.dayNo}"/> 뒤)</button>
+	</form>
+	</c:if>
 </c:forEach>
 
 <%-- [+ DAY 추가]: 마지막 DAY 뒤에 빈 DAY 추가 (OWNER, EDITOR에게만 보인다) --%>

@@ -66,7 +66,7 @@
 
 			<%-- [수정]을 누르면 보기 모양 대신 이 폼이 열린다 (값은 지금 값으로 채워 둠) --%>
 			<c:if test="${canEditSchedules}">
-			<form class="tt-sch-form" style="display: none;" method="post"
+			<form class="tt-sch-form" style="display: none;" method="post" data-require-place="${trip.publicScope}"
 				action="/trips/<c:out value='${schTripId}'/>/schedules/<c:out value='${s.schId}'/>/edit">
 				<div class="form-group form-group-sm">
 					<label>시간</label>
@@ -75,12 +75,12 @@
 				</div>
 				<div class="form-group form-group-sm">
 					<label>장소</label>
-					<%-- TODO(송유림): UC-014(윤아연, PR #24)가 develop에 들어오면 아래 입력칸 3개를
-					     <jsp:include page="_placeSearch.jsp"> + jsp:param placeName · lat · lng 로 바꾼다 (입력칸 이름은 같음) --%>
-					<input type="text" name="placeName" class="form-control tt-sch-place-input" maxlength="100"
-						value="<c:out value='${s.placeName}'/>" <c:if test="${trip.publicScope}">required</c:if>>
-					<input type="hidden" name="lat" class="tt-sch-lat" value="<c:out value='${s.lat}'/>">
-					<input type="hidden" name="lng" class="tt-sch-lng" value="<c:out value='${s.lng}'/>">
+					<%-- 장소 검색 조각 (윤아연, UC-014): placeName · lat · lng 입력칸을 만들고 카카오 검색으로 채운다 --%>
+					<jsp:include page="_placeSearch.jsp">
+						<jsp:param name="placeName" value="${s.placeName}"/>
+						<jsp:param name="lat" value="${s.lat}"/>
+						<jsp:param name="lng" value="${s.lng}"/>
+					</jsp:include>
 				</div>
 				<div class="form-group form-group-sm">
 					<label>설명</label>
@@ -105,7 +105,7 @@
 	<c:if test="${canEditSchedules}">
 	<button type="button" class="btn btn-default btn-sm tt-sch-add-btn">+ 일정 추가</button>
 	<form class="tt-sch-form tt-sch-add-form well well-sm" style="display: none;" method="post"
-		action="/trips/<c:out value='${schTripId}'/>/schedules">
+		data-require-place="${trip.publicScope}" action="/trips/<c:out value='${schTripId}'/>/schedules">
 		<input type="hidden" name="dayId" value="<c:out value='${schDayId}'/>">
 		<div class="form-group form-group-sm">
 			<label>시간</label>
@@ -113,11 +113,8 @@
 		</div>
 		<div class="form-group form-group-sm">
 			<label>장소</label>
-			<%-- TODO(송유림): UC-014가 develop에 들어오면 아래 입력칸 3개를 <jsp:include page="_placeSearch.jsp"/>로 바꾼다 --%>
-			<input type="text" name="placeName" class="form-control tt-sch-place-input" maxlength="100"
-				placeholder="장소 이름 (예: 성산일출봉)" <c:if test="${trip.publicScope}">required</c:if>>
-			<input type="hidden" name="lat" class="tt-sch-lat" value="">
-			<input type="hidden" name="lng" class="tt-sch-lng" value="">
+			<%-- 장소 검색 조각 (윤아연, UC-014) --%>
+			<jsp:include page="_placeSearch.jsp"/>
 		</div>
 		<div class="form-group form-group-sm">
 			<label>설명</label>
