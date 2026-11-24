@@ -19,6 +19,7 @@ public interface DayMapper {
 	public int countDays(Long tripId);
 
 	// DAY 한 개 추가 (day에 tripId, dayNo를 넣어서 호출)
+	// 실행 후 day.getDayId()에 새 DAY_ID가 들어 있다 (selectKey, insertDays에서 일정 복사에 사용)
 	public void insertDay(DayVO day);
 
 	// ===== DAY 삭제용 (UC-011 1A~1D) =====
@@ -50,4 +51,14 @@ public interface DayMapper {
 
 	// dayNo보다 뒤에 있는 DAY 삭제 (뒤에서 잘라 내므로 남는 DAY의 번호는 그대로)
 	public int deleteDaysAfter(@Param("tripId") Long tripId, @Param("dayNo") int dayNo);
+
+	// ===== 복사한 DAY 넣기 (insertDays: 송유림 UC-020 여행 복사) =====
+
+	// ① position보다 뒤에 있는 DAY의 번호를 count만큼 민다 (DAY_NO > position → DAY_NO + count)
+	public int shiftDaysFrom(@Param("tripId") Long tripId, @Param("position") int position, @Param("count") int count);
+
+	// ③ 원본 DAY(sourceDayId)의 일정을 새 DAY(newDayId)로 복사 → 복사한 일정 수
+	//    넣을 여행(targetTripId)이 전체 공개면 시간 · 장소가 모두 있는 일정만 복사한다
+	public int copySchedules(@Param("newDayId") Long newDayId, @Param("sourceDayId") Long sourceDayId,
+			@Param("targetTripId") Long targetTripId);
 }
