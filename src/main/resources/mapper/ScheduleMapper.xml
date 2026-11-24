@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 일정 SQL (담당: 송유림, UC-013)
+     namespace = ScheduleMapper 인터페이스의 전체 이름, id = 메서드 이름
+     컬럼 SCH_ID, PLACE_NAME ... → VO 필드 schId, placeName ... 은 mapUnderscoreToCamelCase로 자동 매핑 -->
+<mapper namespace="com.ttplanner.mapper.ScheduleMapper">
+
+	<!-- 여행 전체 일정 (구성정의서 8장 나. ScheduleService.findByTrip)
+	     DAY 번호 → SLOT_NO 순. 지도 "DAY-순서" 번호를 위해 day_no도 함께 가져온다 -->
+	<select id="findByTrip" resultType="com.ttplanner.vo.ScheduleVO">
+		select s.sch_id, s.day_id, s.slot_no, s.time, s.place_name, s.lat, s.lng, s.description,
+		       d.day_no
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		  join trip t on t.trip_id = d.trip_id
+		 where d.trip_id = #{tripId}
+		   and t.del_yn = 'N'
+		 order by d.day_no, s.slot_no
+	</select>
+
+	<!-- DAY 하나의 일정 (SLOT_NO 순). 추가 · 수정 · 삭제 · 순서 변경 때 자리를 계산하는 데 쓴다 -->
+	<select id="findByDay" resultType="com.ttplanner.vo.ScheduleVO">
+		select s.sch_id, s.day_id, s.slot_no, s.time, s.place_name, s.lat, s.lng, s.description,
+		       d.day_no
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		 where s.day_id = #{dayId}
+		 order by s.slot_no, s.sch_id
+	</select>
+
+	<!-- 일정 한 개: 이 여행(tripId)의 일정이고 삭제되지 않은 여행일 때만 -->
+	<select id="findOne" resultType="com.ttplanner.vo.ScheduleVO">
+		select s.sch_id, s.day_id, s.slot_no, s.time, s.place_name, s.lat, s.lng, s.description,
+		       d.day_no
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		  join trip t on t.trip_id = d.trip_id
+		 where s.sch_id = #{schId}
+		   and d.trip_id = #{tripId}
+		   and t.del_yn = 'N'
+	</select>
+
+	<!-- DAY가 속한 여행 번호 (순서 변경 API는 주소에 dayId만 있으므로 권한 검사용으로 여행을 찾는다) -->
+	<select id="findTripIdByDay" resultType="long">
+		select d.trip_id
+		  from trip_day d
+		  join trip t on t.trip_id = d.trip_id
+		 where d.day_id = #{dayId}
+		   and t.del_yn = 'N'
+	</select>
+
+	<!-- 여행의 공개 범위 (전체 공개면 시간 · 장소 필수, 마지막 일정 보호) -->
+	<select id="getTripScope" resultType="string">
+		select scope
+		  from trip
+		 where trip_id = #{tripId}
+		   and del_yn = 'N'
+	</select>
+
+	<!-- 여행 전체의 일정 개수 -->
+	<select id="countByTrip" resultType="int">
+		select count(*)
+		  from schedule s
+		  join trip_day d on d.day_id = s.day_id
+		 where d.trip_id = #{tripId}
+	</select>
+
+	<!-- 일정 추가: 먼저 seq_schedule 번호를 받아 schId에 넣고(selectKey), 그 번호로 insert
+	     → Service가 schedule.getSchId()로 새 일정을 찾아 자리를 맞춘다
+	     빈 값(null)은 root-context.xml의 jdbcTypeForNull=NULL 설정으로 그대로 NULL이 들어간다 -->
+	<insert id="insert">
+		<selectKey keyProperty="schId" resultType="long" order="BEFORE">
+			select seq_schedule.nextval from dual
+		</selectKey>
+		insert into schedule (sch_id, day_id, slot_no, time, place_name, lat, lng, description)
+		values (#{schId}, #{dayId}, #{slotNo}, #{time}, #{placeName}, #{lat}, #{lng}, #{description})
+	</insert>
+
+	<!-- 일정 수정 (SLOT_NO와 DAY는 바꾸지 않음) -->
+	<update id="update">
+		update schedule
+		   set time        = #{time},
+		       place_name  = #{placeName},
+		       lat         = #{lat},
+		       lng         = #{lng},
+		       description = #{description}
+		 where sch_id = #{schId}
+	</update>
+
+	<!-- 순서 번호만 바꾸기 -->
+	<update id="updateSlotNo">
+		update schedule
+		   set slot_no = #{slotNo}
+		 where sch_id = #{schId}
+	</update>
+
+	<!-- 순서 변경: 새 자리 번호와 그 자리의 원래 시간을 함께 넣는다 -->
+	<update id="updateSlotNoAndTime">
+		update schedule
+		   set slot_no = #{slotNo},
+		       time    = #{time}
+		 where sch_id = #{schId}
+	</update>
+
+	<!-- 일정 삭제 -->
+	<delete id="delete">
+		delete from schedule
+		 where sch_id = #{schId}
+	</delete>
+
+</mapper>

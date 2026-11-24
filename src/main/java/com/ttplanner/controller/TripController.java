@@ -21,6 +21,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.ttplanner.service.DayService;
 import com.ttplanner.service.LikeService;
+import com.ttplanner.service.ScheduleService;
 import com.ttplanner.service.TripAccessException;
 import com.ttplanner.service.TripPeriodConfirmException;
 import com.ttplanner.service.TripService;
@@ -62,6 +63,8 @@ public class TripController {
 	private DayService dayService; // DAY 목록 (양지호, UC-011 · UC-012)
 
 	private LikeService likeService; // 좋아요 수 · 내가 눌렀는지 (김민정, UC-021)
+
+	private ScheduleService scheduleService; // 일정 목록 (송유림, UC-013)
 
 	// ===================== UC-007 내 여행 =====================
 
@@ -137,8 +140,8 @@ public class TripController {
 		// DAY 카드 목록 → trip/_days.jsp (양지호). DayVO에 dayId가 있어야 [DAY 삭제] 주소가 만들어진다
 		model.addAttribute("days", dayService.findDays(tripId));
 
-		// TODO(송유림, UC-013): ScheduleService.findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다 (지도 · DAY 카드 일정).
-		model.addAttribute("schedules", Collections.emptyList());
+		// 일정 목록 → trip/_schedules.jsp, trip/_map.jsp (송유림, UC-013). DAY 번호 → SLOT_NO 순
+		model.addAttribute("schedules", scheduleService.findByTrip(tripId));
 
 		// TODO(양지호): MemberService.summary(tripId) · findByTrip(tripId)가 develop에 들어오면 그것으로 바꾼다.
 		//              지금은 여행 정보에 이미 있는 OWNER 닉네임 · 멤버 수로 같은 이름(ownerNickname, otherCount)을 만들어 둔다.

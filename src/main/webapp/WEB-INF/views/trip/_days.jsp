@@ -79,7 +79,8 @@
 			</form>
 			</c:if>
 
-			<%-- TODO(송유림): UC-013 일정 목록 자리 (trip/_schedules.jsp 조각을 include) --%>
+			<%-- 일정 목록 (송유림, UC-013). c:forEach의 day는 조각으로 넘어가지 않으므로 dayId를 param으로 넘긴다 --%>
+			<jsp:include page="_schedules.jsp"><jsp:param name="dayId" value="${day.dayId}"/></jsp:include>
 			<%-- TODO(윤아연): UC-006 [지도] 버튼 자리 --%>
 		</div>
 	</div>
