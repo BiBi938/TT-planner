@@ -18,6 +18,9 @@
 	.tt-new-card { width: 100%; border-style: dashed; color: #337ab7; font-size: 16px; text-align: center; padding-top: 60px; }
 	.tt-region-list label { font-weight: normal; margin-right: 14px; }
 	.tt-field-error { color: #a94442; font-size: 13px; margin-top: 4px; }
+	/* UC-007 2B. 여행 복사 중: DAY를 넣을 수 있는 여행(OWNER · EDITOR)은 진한 테두리, 나머지는 흐리게 */
+	.tt-copy-target { border: 3px solid #337ab7; }
+	.tt-copy-dim { opacity: .45; }
 </style>
 
 <div class="row">
@@ -30,13 +33,21 @@
 	<div class="alert alert-success"><c:out value="${tripMsg}"/></div>
 </c:if>
 
-<%-- TODO(송유림): 여행 복사 중(UC-007 2B)이면 OWNER·EDITOR 여행은 진한 테두리, 나머지는 흐리게,
-     [+ 새로운 여행] 대신 [+ 복사한 DAY로 새 여행 만들기]를 보여 준다 --%>
+<%-- UC-007 2B. 여행 복사 중(세션 copyDays, 송유림 UC-020)이면 복사 안내 조각을 보여 준다 --%>
+<c:set var="copying" value="${not empty sessionScope.copyDays}"/>
+<c:if test="${copying}">
+	<c:catch var="copyBarError"><jsp:include page="_copyBar.jsp"/></c:catch>
+</c:if>
+
 <div class="row">
 	<%-- 2. 내가 만들었거나 멤버로 참여한 여행 카드 (2A. 여행이 없으면 [+ 새로운 여행] 카드만 보인다) --%>
 	<c:forEach items="${trips}" var="trip">
 		<div class="col-sm-6 col-md-4">
-			<a class="tt-trip-card" href="/trips/<c:out value='${trip.tripId}'/>">
+			<c:set var="copyClass" value=""/>
+			<c:if test="${copying}">
+				<c:set var="copyClass" value="${trip.myRole == 'OWNER' or trip.myRole == 'EDITOR' ? 'tt-copy-target' : 'tt-copy-dim'}"/>
+			</c:if>
+			<a class="tt-trip-card ${copyClass}" href="/trips/<c:out value='${trip.tripId}'/>">
 				<span class="tt-card-title"><c:out value="${trip.title}"/></span>
 				<span class="tt-card-line"><c:out value="${trip.periodText}"/></span>
 				<span class="tt-card-line"><c:out value="${trip.durationText}"/> · <c:out value="${trip.regionNames}"/></span>
@@ -46,9 +57,19 @@
 	</c:forEach>
 
 	<div class="col-sm-6 col-md-4">
-		<button type="button" class="tt-trip-card tt-new-card" data-toggle="modal" data-target="#newTripModal">
-			+ 새로운 여행
-		</button>
+		<c:choose>
+			<%-- 2B2. 복사 중이면 [+ 새로운 여행] 대신 [+ 복사한 DAY로 새 여행 만들기] (POST /trips/copy/new, 송유림) --%>
+			<c:when test="${copying}">
+				<form method="post" action="/trips/copy/new">
+					<button type="submit" class="tt-trip-card tt-new-card">+ 복사한 DAY로 새 여행 만들기</button>
+				</form>
+			</c:when>
+			<c:otherwise>
+				<button type="button" class="tt-trip-card tt-new-card" data-toggle="modal" data-target="#newTripModal">
+					+ 새로운 여행
+				</button>
+			</c:otherwise>
+		</c:choose>
 	</div>
 </div>
 

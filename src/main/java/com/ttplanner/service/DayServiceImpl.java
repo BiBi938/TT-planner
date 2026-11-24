@@ -1,5 +1,7 @@
 package com.ttplanner.service;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,10 @@ public class DayServiceImpl implements DayService {
 
 	@Setter(onMethod_ = @Autowired)
 	private DayMapper mapper;
+
+	// 여행 시작일 저장 (박준성, UC-012 연결: TripService.changeStartDate)
+	@Setter(onMethod_ = @Autowired)
+	private TripService tripService;
 
 	@Override
 	public List<DayVO> findDays(Long tripId) {
@@ -100,5 +106,142 @@ public class DayServiceImpl implements DayService {
 		mapper.deleteDaySchedules(target);
 		mapper.deleteDay(target);
 		mapper.shiftDaysAfter(target);
+	}
+
+	@Transactional
+	@Override
+	public void syncDays(Long tripId, Date start, Date end) {
+		log.info("syncDays......" + tripId + ", " + start + " ~ " + end);
+
+		// ① 날짜 검사
+		if (start == null || end == null) {
+			throw new IllegalStateException("시작일과 종료일을 모두 입력하세요.");
+		}
+		int newCount = countDaysBetween(start, end);
+		if (newCount < 1) {
+			throw new IllegalStateException("종료일은 시작일과 같거나 이후여야 합니다.");
+		}
+		if (newCount > MAX_DAYS) {
+			throw new IllegalStateException("여행 기간은 30일 이하로 정해 주세요.");
+		}
+
+		// ② 여행이 있는지 (새 여행은 DAY가 0개라 countDays로는 알 수 없음)
+		String scope = mapper.getTripScope(tripId);
+		if (scope == null) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+
+		int oldCount = mapper.countDays(tripId);
+
+		// ③ 늘어남 → 뒤에 빈 DAY 추가 (예: 3개 → 5개면 DAY 4, 5)
+		if (newCount > oldCount) {
+			for (int dayNo = oldCount + 1; dayNo <= newCount; dayNo++) {
+				DayVO day = new DayVO();
+				day.setTripId(tripId);
+				day.setDayNo(dayNo);
+				mapper.insertDay(day);
+			}
+		}
+
+		// ④ 줄어듦 → 뒤 DAY의 일정 삭제 → 뒤 DAY 삭제 (예: 5개 → 3개면 DAY 4, 5)
+		if (newCount < oldCount) {
+			int lost = mapper.countSchedulesAfter(tripId, newCount); // 지워질 일정 수
+			int total = mapper.countTripSchedules(tripId);           // 지금 전체 일정 수
+			if ("PUBLIC".equals(scope) && lost > 0 && total - lost == 0) {
+				throw new IllegalStateException("전체 공개 여행에는 일정이 1개 이상 있어야 합니다. 비공개로 바꾼 뒤 기간을 줄이세요.");
+			}
+			mapper.deleteSchedulesAfter(tripId, newCount);
+			mapper.deleteDaysAfter(tripId, newCount);
+		}
+
+		// 같으면 아무것도 안 함 (날짜만 옮긴 경우: DAY 날짜는 START_DATE로 계산되므로 저절로 이동)
+	}
+
+	// 복사한 DAY 넣기 (송유림 UC-020). DAY 밀기 · 새 DAY · 일정 복사를 함께 하므로 @Transactional
+	// 예) DAY 1 · 2 · 3 여행에 DAY 2개를 position = 1 (DAY 1 뒤)에 넣기
+	//     → DAY 2 · 3을 4 · 5로 밀고, 새 DAY 2 · 3을 만들어 원본 일정을 복사 → DAY 1, [새 2], [새 3], 4, 5
+	@Transactional
+	@Override
+	public int insertDays(Long targetTripId, int position, List<Long> sourceDayIds) {
+		log.info("insertDays......" + targetTripId + ", position " + position + ", sources " + sourceDayIds);
+
+		// ① 검사: 여행이 있는지 (빈 새 여행은 DAY가 0개라 countDays로는 알 수 없음), 복사할 DAY, 위치, 30일 제한
+		if (mapper.getTripScope(targetTripId) == null) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+		if (sourceDayIds == null || sourceDayIds.isEmpty()) {
+			throw new IllegalStateException("복사한 DAY가 없습니다.");
+		}
+		int dayCount = mapper.countDays(targetTripId);
+		if (position < 0 || position > dayCount) {
+			throw new IllegalStateException("DAY를 넣을 위치가 잘못되었습니다.");
+		}
+		if (dayCount + sourceDayIds.size() > MAX_DAYS) {
+			throw new IllegalStateException("여행 기간은 최대 30일입니다. 지금 DAY " + dayCount + "개에 "
+					+ sourceDayIds.size() + "개를 더 넣을 수 없습니다.");
+		}
+
+		// ② position 뒤의 DAY를 넣을 개수만큼 민다
+		mapper.shiftDaysFrom(targetTripId, position, sourceDayIds.size());
+
+		// ③ 빈자리(position + 1부터)에 새 DAY를 만들고, 원본 DAY의 일정을 복사한다
+		int scheduleCount = 0;
+		for (int i = 0; i < sourceDayIds.size(); i++) {
+			DayVO day = new DayVO();
+			day.setTripId(targetTripId);
+			day.setDayNo(position + 1 + i);
+			mapper.insertDay(day); // → day.getDayId()에 새 DAY_ID (selectKey)
+
+			scheduleCount += mapper.copySchedules(day.getDayId(), sourceDayIds.get(i), targetTripId);
+		}
+		return scheduleCount;
+	}
+
+	// 시작일 ~ 종료일이 며칠인지 (같은 날 = 1일). 예) 11/20 ~ 11/24 → 5
+	private int countDaysBetween(Date start, Date end) {
+		long oneDay = 24L * 60 * 60 * 1000;          // 하루 = 86,400,000 밀리초
+		long diff = end.getTime() - start.getTime(); // 두 날짜 차이 (밀리초)
+		return (int) (diff / oneDay) + 1;
+	}
+
+	@Transactional
+	@Override
+	public String changeDayDate(Long tripId, Long dayId, Date newDate) {
+		log.info("changeDayDate......" + tripId + ", DAY_ID " + dayId + " → " + newDate);
+
+		if (newDate == null) {
+			throw new IllegalStateException("날짜를 골라 주세요.");
+		}
+
+		// 1. 이 여행의 DAY 중에서 고른 DAY 찾기 (deleteDay와 같은 방식)
+		List<DayVO> days = mapper.findDays(tripId);
+		if (days.size() == 0) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+		DayVO target = null;
+		for (DayVO day : days) {
+			if (day.getDayId().equals(dayId)) {
+				target = day;
+			}
+		}
+		if (target == null) {
+			throw new IllegalStateException("DAY를 찾을 수 없습니다.");
+		}
+
+		// 2. 새 시작일 = 고른 날짜 - (DAY 번호 - 1)일   예) DAY 2를 11/26으로 → 11/25
+		long oneDay = 24L * 60 * 60 * 1000; // 하루 = 86,400,000 밀리초
+		Date newStart = new Date(newDate.getTime() - (target.getDayNo() - 1) * oneDay);
+
+		// 3. 시작일 저장 → DAY 날짜는 START_DATE + DAY_NO - 1 이라 모든 DAY가 함께 이동
+		tripService.changeStartDate(tripId, newStart);
+
+		// 4. 바뀐 DAY 목록으로 새 기간(첫 DAY ~ 마지막 DAY)을 구해 문구 만들기
+		List<DayVO> changed = mapper.findDays(tripId);
+		SimpleDateFormat format = new SimpleDateFormat("M/d");
+		String first = format.format(changed.get(0).getDayDate());
+		String last = format.format(changed.get(changed.size() - 1).getDayDate());
+
+		return "DAY " + target.getDayNo() + "을 " + format.format(newDate) + "로 옮겼습니다. "
+				+ "여행 기간이 " + first + " ~ " + last + "로 함께 바뀌었습니다.";
 	}
 }

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace = MemberMapper 인터페이스의 전체 이름 -->
+<mapper namespace="com.ttplanner.mapper.MemberMapper">
+
+	<!-- 이 여행에서 이 회원의 권한 (참여 중인 멤버만)
+	     - 조건에 맞는 줄은 많아야 1줄 (TRIP_ID + USER_ID가 PK라 겹칠 수 없음)
+	     - 1줄이면 그 줄의 ROLE, 0줄이면 MyBatis가 null을 돌려준다
+	     - INVITED(초대 중) · REQUESTED(참여 요청 중)는 아직 멤버가 아니므로 제외 -->
+	<select id="getRole" resultType="string">
+		select role
+		from trip_member
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+		  and status = 'JOINED'
+	</select>
+
+	<!-- UC-017 초대할 회원 검색 (닉네임 일부로)
+	     - '%' || #{keyword} || '%' : 앞뒤에 무엇이 붙어도 됨 → "친구" 검색 시 "여행친구", "친구1" 모두 찾음
+	       (#{}로 값만 넣고 %는 SQL에서 붙인다. ${}를 쓰면 SQL 인젝션 위험)
+	     - 탈퇴 회원(DEL_YN = 'Y')과 검색하는 나 자신은 뺀다
+	     - 이미 멤버 · 초대 중인 회원은 결과에 남긴다 → 골라서 [초대]하면 7B · 7C 문구로 막는다
+	     - 닉네임 순으로 최대 20명 -->
+	<select id="searchUsers" resultType="com.ttplanner.vo.MemberVO">
+		select user_id, nickname
+		from users
+		where nickname like '%' || #{keyword} || '%'
+		  and del_yn = 'N'
+		  and user_id &lt;&gt; #{excludeUserId}
+		order by nickname
+		fetch first 20 rows only
+	</select>
+
+	<!-- UC-017 이 여행에서 이 회원의 상태 (초대 전 7B · 7C 검사용)
+	     - getRole과 같은 줄을 보지만 status 조건이 없다 → JOINED · INVITED · REQUESTED 모두 알 수 있음
+	     - 줄이 없으면 null (아직 아무 관계 없는 회원 → 초대 가능) -->
+	<select id="getStatus" resultType="string">
+		select status
+		from trip_member
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+	</select>
+
+	<!-- UC-017 회원 닉네임 (탈퇴하지 않은 회원만)
+	     - 초대할 회원이 진짜 있는지 확인 + 결과 문구 "○○ 님에게 …"에 사용
+	     - 매개변수가 1개라 @Param 없이 #{userId}로 받는다 -->
+	<select id="getNickname" resultType="string">
+		select nickname
+		from users
+		where user_id = #{userId}
+		  and del_yn = 'N'
+	</select>
+
+	<!-- UC-017 초대 보내기
+	     - STATUS는 'INVITED'로 고정 (수락하면 UC-025에서 'JOINED'로 바꾼다)
+	     - 같은 (TRIP_ID, USER_ID)가 이미 있으면 PK 오류 → Service에서 getStatus로 먼저 확인한다
+	     - DB 검사 규칙: INVITED면 ROLE은 EDITOR · VIEWER만 (schema.sql ck_trip_member_role_status) -->
+	<insert id="insertInvite">
+		insert into trip_member (trip_id, user_id, role, status)
+		values (#{tripId}, #{userId}, #{role}, 'INVITED')
+	</insert>
+
+	<!-- UC-017 여행 멤버 목록
+	     - TRIP_MEMBER에는 닉네임이 없으므로 USERS와 JOIN해서 한 번에 가져온다 (m.user_id = u.user_id)
+	     - 상태(STATUS)로 거르지 않는다 → 화면(_members.jsp)이 JOINED는 칸에, INVITED는 "초대 중"에 나눠 표시
+	     - order by의 case: 권한을 숫자로 바꿔 정렬 (OWNER 1 → EDITOR 2 → VIEWER 3 → 참여 요청(null) 4) -->
+	<select id="findByTrip" resultType="com.ttplanner.vo.MemberVO">
+		select m.trip_id, m.user_id, u.nickname, m.role, m.status
+		from trip_member m
+		join users u on m.user_id = u.user_id
+		where m.trip_id = #{tripId}
+		  and u.del_yn = 'N'
+		order by case m.role
+		           when 'OWNER'  then 1
+		           when 'EDITOR' then 2
+		           when 'VIEWER' then 3
+		           else 4
+		         end,
+		         u.nickname
+	</select>
+
+</mapper>

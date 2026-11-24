@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 내 여행 통계 SQL (담당: 송유림, UC-022 · 화면설계서 S-10)
+     namespace = StatsMapper 인터페이스의 전체 이름, id = 메서드 이름
+
+     [집계 대상 여행] = 통계의 "끝난 여행" (countEndedTrips, getRegionStats 공통 조건)
+       - 내가 멤버  : trip_member.status = 'JOINED' (만든 사람도 OWNER로 JOINED)
+       - 삭제 안 함 : trip.del_yn = 'N'
+       - 끝난 여행  : v_trip_period.end_date < trunc(sysdate) (오늘 끝나는 여행은 아직 세지 않음)
+     XML 안에서는 '<'를 그대로 쓸 수 없어서 &lt; 로 적는다. -->
+<mapper namespace="com.ttplanner.mapper.StatsMapper">
+
+	<!-- 총 여행 수
+	     trip_member의 PK가 (trip_id, user_id)라서 한 여행이 두 번 세지지 않는다 -->
+	<select id="countEndedTrips" resultType="int">
+		select count(*)
+		  from trip_member m
+		  join trip t          on t.trip_id = m.trip_id
+		  join v_trip_period p on p.trip_id = t.trip_id
+		 where m.user_id  = #{userId}
+		   and m.status   = 'JOINED'
+		   and t.del_yn   = 'N'
+		   and p.end_date &lt; trunc(sysdate)
+	</select>
+
+	<!-- 지역별 여행 횟수 (원그래프 · 순위)
+	     집계 대상 여행에 trip_region을 붙여 지역별로 센다.
+	     trip_region의 PK가 (trip_id, region)이라 count(*) = 그 지역을 간 여행 수
+	       예) 여행 A(제주), 여행 B(제주, 전남) → 제주 2, 전남 1
+	     별칭 REGION, TRIP_COUNT → RegionStatVO.region, tripCount (언더스코어 → 카멜 표기 자동 매핑)
+	     횟수가 같은 지역끼리의 순서는 StatsServiceImpl에서 TripService.REGIONS 순으로 정한다 -->
+	<select id="getRegionStats" resultType="com.ttplanner.vo.RegionStatVO">
+		select r.region   as region,
+		       count(*)   as trip_count
+		  from trip_member m
+		  join trip t          on t.trip_id = m.trip_id
+		  join v_trip_period p on p.trip_id = t.trip_id
+		  join trip_region r   on r.trip_id = t.trip_id
+		 where m.user_id  = #{userId}
+		   and m.status   = 'JOINED'
+		   and t.del_yn   = 'N'
+		   and p.end_date &lt; trunc(sysdate)
+		 group by r.region
+		 order by trip_count desc
+	</select>
+
+	<!-- 좋아요 받은 수
+	     내가 OWNER인 여행이 받은 좋아요 합계.
+	     삭제한 여행도 포함해야 하므로 trip(del_yn)과 조인하지 않는다.
+	     (여행을 삭제해도 OWNER 행과 trip_like 행은 남는다, schema.sql)
+	     종료일 조건도 없다: 진행 중 · 예정 여행이 받은 좋아요도 센다 -->
+	<select id="countReceivedLikes" resultType="int">
+		select count(*)
+		  from trip_member m
+		  join trip_like l on l.trip_id = m.trip_id
+		 where m.user_id = #{userId}
+		   and m.role    = 'OWNER'
+		   and m.status  = 'JOINED'
+	</select>
+
+</mapper>

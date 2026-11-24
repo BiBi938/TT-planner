@@ -62,7 +62,7 @@
 	<c:otherwise>
 		<p class="text-muted">공개 여행 ${total}건</p>
 
-		<%-- 검색 결과 카드 (S-07 3번). 누르면 여행 상세 /trips/{번호} (박준성, UC-005)
+		<%-- 검색 결과 카드 (S-07 3번). 누르면 여행 상세 GET /trips/{번호} (박준성, UC-005, 구성정의서 v1.4 8장 나.)
 		     검색 조건이 주소에 남아 있어서 상세에서 [뒤로]를 누르면 같은 조건 · 페이지로 돌아온다 --%>
 		<div class="row">
 			<c:forEach items="${trips}" var="trip">

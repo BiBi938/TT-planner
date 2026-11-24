@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 여행 복사 SQL (담당: 송유림, UC-020 · 화면설계서 S-09)
+     namespace = CopyMapper 인터페이스의 전체 이름, id = 메서드 이름 -->
+<mapper namespace="com.ttplanner.mapper.CopyMapper">
+
+	<!-- ================= DAY 선택 화면 (S-09-1) ================= -->
+
+	<!-- 여행의 DAY 목록 + 날짜 · 일정 개수 · 장소 일부
+	     place_names: DAY마다 일정 순서(slot_no)대로 앞의 장소 3곳을 ", "로 잇는다
+	       예) 성산일출봉, 섭지코지, 우도
+	       row_number()로 DAY별 순번을 매기고 3번까지만 listagg로 합친다 -->
+	<select id="getCopyDays" resultType="com.ttplanner.vo.CopyDayVO">
+		select d.day_id,
+		       d.trip_id,
+		       d.day_no,
+		       t.start_date + d.day_no - 1 as day_date,
+		       (select count(*) from schedule s where s.day_id = d.day_id) as schedule_count,
+		       p.place_names
+		  from trip_day d
+		  join trip t on t.trip_id = d.trip_id
+		  left join (select day_id,
+		                    listagg(place_name, ', ') within group (order by rn) as place_names
+		               from (select s.day_id,
+		                            s.place_name,
+		                            row_number() over (partition by s.day_id order by s.slot_no, s.sch_id) as rn
+		                       from schedule s
+		                      where s.place_name is not null)
+		              where rn &lt;= 3
+		              group by day_id) p on p.day_id = d.day_id
+		 where d.trip_id = #{tripId}
+		   and t.del_yn  = 'N'
+		 order by d.day_no
+	</select>
+
+	<!-- 고른 DAY_ID들의 DAY 정보 (복사 상태 확인 · DAY 넣기에 사용)
+	     삭제한 여행의 DAY는 빠진다 → 개수가 줄면 Service에서 "다시 복사" 안내 -->
+	<select id="getSourceDays" resultType="com.ttplanner.vo.CopyDayVO">
+		select d.day_id,
+		       d.trip_id,
+		       d.day_no
+		  from trip_day d
+		  join trip t on t.trip_id = d.trip_id
+		 where t.del_yn = 'N'
+		   and d.day_id in
+		<foreach collection="dayIds" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+		 order by d.trip_id, d.day_no
+	</select>
+
+	<!-- 복사한 DAY로 새 여행: 원본 제목 · 지역은 TripService.find(박준성)로 가져온다 (임시 SQL 2개는 지움)
+	     DAY 밀기 · 새 DAY · 일정 복사(insertDays)는 DayService · DayMapper.xml로 옮겼다 -->
+
+</mapper>
