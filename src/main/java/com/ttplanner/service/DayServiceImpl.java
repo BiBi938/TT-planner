@@ -157,6 +157,46 @@ public class DayServiceImpl implements DayService {
 		// 같으면 아무것도 안 함 (날짜만 옮긴 경우: DAY 날짜는 START_DATE로 계산되므로 저절로 이동)
 	}
 
+	// 복사한 DAY 넣기 (송유림 UC-020). DAY 밀기 · 새 DAY · 일정 복사를 함께 하므로 @Transactional
+	// 예) DAY 1 · 2 · 3 여행에 DAY 2개를 position = 1 (DAY 1 뒤)에 넣기
+	//     → DAY 2 · 3을 4 · 5로 밀고, 새 DAY 2 · 3을 만들어 원본 일정을 복사 → DAY 1, [새 2], [새 3], 4, 5
+	@Transactional
+	@Override
+	public int insertDays(Long targetTripId, int position, List<Long> sourceDayIds) {
+		log.info("insertDays......" + targetTripId + ", position " + position + ", sources " + sourceDayIds);
+
+		// ① 검사: 여행이 있는지 (빈 새 여행은 DAY가 0개라 countDays로는 알 수 없음), 복사할 DAY, 위치, 30일 제한
+		if (mapper.getTripScope(targetTripId) == null) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+		if (sourceDayIds == null || sourceDayIds.isEmpty()) {
+			throw new IllegalStateException("복사한 DAY가 없습니다.");
+		}
+		int dayCount = mapper.countDays(targetTripId);
+		if (position < 0 || position > dayCount) {
+			throw new IllegalStateException("DAY를 넣을 위치가 잘못되었습니다.");
+		}
+		if (dayCount + sourceDayIds.size() > MAX_DAYS) {
+			throw new IllegalStateException("여행 기간은 최대 30일입니다. 지금 DAY " + dayCount + "개에 "
+					+ sourceDayIds.size() + "개를 더 넣을 수 없습니다.");
+		}
+
+		// ② position 뒤의 DAY를 넣을 개수만큼 민다
+		mapper.shiftDaysFrom(targetTripId, position, sourceDayIds.size());
+
+		// ③ 빈자리(position + 1부터)에 새 DAY를 만들고, 원본 DAY의 일정을 복사한다
+		int scheduleCount = 0;
+		for (int i = 0; i < sourceDayIds.size(); i++) {
+			DayVO day = new DayVO();
+			day.setTripId(targetTripId);
+			day.setDayNo(position + 1 + i);
+			mapper.insertDay(day); // → day.getDayId()에 새 DAY_ID (selectKey)
+
+			scheduleCount += mapper.copySchedules(day.getDayId(), sourceDayIds.get(i), targetTripId);
+		}
+		return scheduleCount;
+	}
+
 	// 시작일 ~ 종료일이 며칠인지 (같은 날 = 1일). 예) 11/20 ~ 11/24 → 5
 	private int countDaysBetween(Date start, Date end) {
 		long oneDay = 24L * 60 * 60 * 1000;          // 하루 = 86,400,000 밀리초

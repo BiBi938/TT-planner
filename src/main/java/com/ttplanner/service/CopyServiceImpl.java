@@ -25,7 +25,7 @@ import lombok.extern.log4j.Log4j;
  *   TripService.find (박준성)                           : 넣을 여행 · 원본 여행 정보 (제목, 지역, 공개 범위)
  *   TripService.create(trip, regions, owner) (박준성)   : 복사한 DAY로 새 여행 만들기 (DAY는 만들지 않음)
  *   MemberService.getRole (양지호)                      : 넣을 여행에서 내 권한
- *   DayService.findDays (양지호)                        : 넣을 여행의 DAY 개수
+ *   DayService.insertDays (양지호)                      : 복사한 DAY와 일정을 여행의 원하는 자리에 넣기
  */
 @Log4j
 @Service
@@ -106,7 +106,9 @@ public class CopyServiceImpl implements CopyService {
 			throw new IllegalStateException("복사한 DAY는 내가 OWNER · EDITOR인 여행에만 넣을 수 있습니다.");
 		}
 
-		int scheduleCount = insertDays(targetTripId, position, copyDays);
+		// 복사한 DAY가 남아 있는지 확인한 뒤, 원본 여행 · DAY 번호 순으로 넣는다 (DayService.insertDays, 양지호)
+		List<Long> sourceDayIds = toDayIds(checkSourceDays(copyDays));
+		int scheduleCount = dayService.insertDays(targetTripId, position, sourceDayIds);
 
 		String msg = "복사한 DAY " + copyDays.size() + "개를 넣었습니다. (일정 " + scheduleCount + "개)";
 		if (target.isPublicScope()) {
@@ -143,51 +145,20 @@ public class CopyServiceImpl implements CopyService {
 		Long newTripId = tripService.create(trip, source.getRegions(), userId);
 
 		// 빈 여행의 맨 앞(position 0)에 복사한 DAY와 일정을 넣는다 → DAY 1, 2, … (새 여행은 비공개라 일정 전부)
-		insertDays(newTripId, 0, copyDays);
+		dayService.insertDays(newTripId, 0, toDayIds(sources));
 		log.info("createTrip: newTripId=" + newTripId + ", copyDays=" + copyDays);
 		return newTripId;
 	}
 
-	// ===================== insertDays (구성정의서 8장 나.) =====================
+	// ===================== 도우미 =====================
 
-	/**
-	 * 고른 DAY와 일정을 복사해 targetTripId 여행의 position(이 DAY 뒤, 0 = 맨 앞 · 빈 여행)에 넣고 뒤 DAY를 민다.
-	 * 30일 초과는 이 메서드 안에서 막는다.
-	 * @return 복사한 일정 수
-	 *
-	 * TODO(송유림): feature/yurim-insertdays에서 DayService.insertDays(Long targetTripId, int position, List<Long> sourceDayIds)를
-	 *               만들고, 호출하는 곳을 dayService.insertDays(...)로 바꾸고,
-	 *               이 메서드와 CopyMapper.xml의 insertDays용 SQL 3개를 지운다.
-	 *               (이 메서드 내용과 SQL 3개를 그대로 옮겨 가면 된다)
-	 */
-	private int insertDays(Long targetTripId, int position, List<Long> sourceDayIds) {
-		List<CopyDayVO> sources = checkSourceDays(sourceDayIds);
-		int dayCount = dayService.findDays(targetTripId).size();
-
-		if (position < 0 || position > dayCount) {
-			throw new IllegalStateException("DAY를 넣을 위치가 잘못되었습니다.");
+	/** 확인한 원본 DAY 목록(원본 여행 · DAY 번호 순)에서 DAY_ID만 꺼낸다 → DayService.insertDays에 넘김 */
+	private List<Long> toDayIds(List<CopyDayVO> sources) {
+		List<Long> ids = new ArrayList<>();
+		for (CopyDayVO day : sources) {
+			ids.add(day.getDayId());
 		}
-		if (dayCount + sources.size() > TripService.MAX_DAYS) {
-			throw new IllegalStateException("여행 기간은 최대 30일입니다. 지금 DAY " + dayCount + "개에 "
-					+ sources.size() + "개를 더 넣을 수 없습니다.");
-		}
-
-		// ① position 뒤의 DAY를 넣을 개수만큼 민다
-		mapper.shiftDaysFrom(targetTripId, position, sources.size());
-
-		// ② 빈자리(position + 1부터)에 새 DAY를 만들고 ③ 원본 DAY의 일정을 복사한다
-		int scheduleCount = 0;
-		for (int i = 0; i < sources.size(); i++) {
-			CopyDayVO newDay = new CopyDayVO();
-			newDay.setTripId(targetTripId);
-			newDay.setDayNo(position + 1 + i);
-			mapper.insertCopyDay(newDay); // newDay.dayId가 채워진다
-
-			scheduleCount += mapper.copySchedules(newDay.getDayId(), sources.get(i).getDayId(), targetTripId);
-		}
-		log.info("insertDays: target=" + targetTripId + ", position=" + position
-				+ ", sources=" + sourceDayIds + ", schedules=" + scheduleCount);
-		return scheduleCount;
+		return ids;
 	}
 
 	/** 복사한 DAY가 아직 남아 있는지 확인 (그 사이 원본 여행이 삭제되었을 수 있다) */

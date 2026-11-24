@@ -32,10 +32,15 @@
 	</select>
 
 	<!-- DAY 한 개 추가. DAY_ID는 시퀀스로 자동 번호
-	     #{tripId}, #{dayNo} = 넘겨받은 DayVO의 getTripId(), getDayNo() 값 -->
+	     #{tripId}, #{dayNo} = 넘겨받은 DayVO의 getTripId(), getDayNo() 값
+	     selectKey: 먼저 seq_day 번호를 받아 day.dayId에 넣고 그 번호로 insert한다
+	                → 호출한 쪽에서 day.getDayId()로 새 DAY_ID를 쓸 수 있다 (insertDays의 일정 복사) -->
 	<insert id="insertDay">
+		<selectKey keyProperty="dayId" resultType="long" order="BEFORE">
+			select seq_day.nextval from dual
+		</selectKey>
 		insert into trip_day (day_id, trip_id, day_no)
-		values (seq_day.nextval, #{tripId}, #{dayNo})
+		values (#{dayId}, #{tripId}, #{dayNo})
 	</insert>
 
 	<!-- ===== DAY 삭제용 (UC-011 1A~1D) ===== -->
@@ -107,5 +112,34 @@
 		where trip_id = #{tripId}
 		  and day_no > #{dayNo}
 	</delete>
+
+	<!-- ===== 복사한 DAY 넣기 (insertDays: 송유림 UC-020, CopyMapper.xml에서 옮겨 옴) =====
+	     예) DAY 1 · 2 · 3 여행에 DAY 2개를 position = 1 (DAY 1 뒤)에 넣기
+	       ① shiftDaysFrom : DAY 2 · 3 → DAY 4 · 5 (1보다 뒤를 2만큼 밈)
+	       ② insertDay     : DAY 2, DAY 3을 새로 만든다 (위의 insertDay, selectKey로 새 DAY_ID를 받음)
+	       ③ copySchedules : 원본 DAY의 일정을 새 DAY 2, 3에 복사 -->
+
+	<!-- ① DAY 번호 밀기
+	     Oracle은 문장이 끝난 뒤 중복(uk_trip_day)을 검사하므로 한 문장으로 밀면 오류가 나지 않는다 (schema.sql 주석) -->
+	<update id="shiftDaysFrom">
+		update trip_day
+		   set day_no  = day_no + #{count}
+		 where trip_id = #{tripId}
+		   and day_no  > #{position}
+	</update>
+
+	<!-- ③ 일정 복사: 시간 · 장소(이름, 위도, 경도) · 설명만 복사한다 (화면설계서 S-09 6)
+	     - 넣을 여행이 비공개(PRIVATE)면 모두, 전체 공개면 시간 · 장소가 모두 있는 일정만 (S-09 5)
+	     - 일부만 복사되면 순서 번호에 빈틈이 생기므로 row_number()로 1부터 다시 매긴다 -->
+	<insert id="copySchedules">
+		insert into schedule (sch_id, day_id, slot_no, time, place_name, lat, lng, description)
+		select seq_schedule.nextval, #{newDayId}, x.slot_no, x.time, x.place_name, x.lat, x.lng, x.description
+		  from (select row_number() over (order by s.slot_no, s.sch_id) as slot_no,
+		               s.time, s.place_name, s.lat, s.lng, s.description
+		          from schedule s
+		         where s.day_id = #{sourceDayId}
+		           and (   (select t.scope from trip t where t.trip_id = #{targetTripId}) = 'PRIVATE'
+		                or (s.time is not null and s.place_name is not null))) x
+	</insert>
 
 </mapper>

@@ -9,7 +9,8 @@ import lombok.Data;
  *
  * 사용 1) DAY 선택 화면(S-09-1): CopyMapper.getCopyDays(tripId) → trip/copy.jsp
  *         각 줄에 날짜, 일정 개수, 장소 일부를 보여 준다.
- * 사용 2) DAY 넣기: CopyMapper.insertCopyDay(day) → selectKey로 새 dayId가 채워진다.
+ * 사용 2) DAY 넣기 전 확인: CopyMapper.getSourceDays(dayIds) → 복사한 DAY가 남아 있는지, 원본 여행 · DAY 번호 순서
+ *         (실제로 넣는 일은 DayService.insertDays가 한다)
  */
 @Data
 public class CopyDayVO {
