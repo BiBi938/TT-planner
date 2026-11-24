@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +18,7 @@ import com.ttplanner.mapper.TripMapper;
 import com.ttplanner.vo.TripFormVO;
 import com.ttplanner.vo.TripVO;
 
-import lombok.AllArgsConstructor;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j;
 
 /**
@@ -26,13 +27,19 @@ import lombok.extern.log4j.Log4j;
  */
 @Log4j
 @Service
-@AllArgsConstructor
 public class TripServiceImpl implements TripService {
 
 	/** TRIP.TITLE 컬럼 길이. 입력 창은 50자(TITLE_MAX_LENGTH)지만 복사한 여행은 '원본 (복사)'라 길어질 수 있다 */
 	private static final int TITLE_DB_LENGTH = 60;
 
+	@Setter(onMethod_ = @Autowired)
 	private TripMapper mapper;
+
+	// 여행 기간에 맞춰 DAY 개수 맞추기 (양지호, DayService.syncDays)
+	// DayServiceImpl도 TripService를 주입받으므로(UC-012 changeStartDate), 생성자 주입(@AllArgsConstructor)이면
+	// 서로를 먼저 만들려고 해서 서버가 시작되지 않는다(순환 참조) → 두 필드 모두 @Setter 주입으로 둔다
+	@Setter(onMethod_ = @Autowired)
+	private DayService dayService;
 
 	// ===================== UC-007 내 여행 목록 =====================
 
@@ -58,7 +65,6 @@ public class TripServiceImpl implements TripService {
 			throw new TripValidationException(errors);
 		}
 		LocalDate start = period[0];
-		int dayCount = days(period[0], period[1]);
 
 		// 6. 비공개 여행을 만들고 회원을 OWNER로 등록, 8. 공유 링크 자동 생성
 		TripVO trip = new TripVO();
@@ -66,11 +72,8 @@ public class TripServiceImpl implements TripService {
 		trip.setStartDate(java.sql.Date.valueOf(start));
 		Long tripId = create(trip, regions, userId);
 
-		// 7. 여행 기간의 날짜마다 빈 DAY를 만든다
-		// TODO(양지호): DayService.syncDays(tripId, start, end)가 develop에 들어오면 아래 반복문을 그 호출로 바꾼다.
-		for (int dayNo = 1; dayNo <= dayCount; dayNo++) {
-			mapper.insertDay(tripId, dayNo);
-		}
+		// 7. 여행 기간의 날짜마다 빈 DAY를 만든다 (새 여행은 DAY 0개 → 기간 일수만큼 DAY 1, 2, ... 추가)
+		dayService.syncDays(tripId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(period[1]));
 		return tripId;
 	}
 
@@ -227,15 +230,13 @@ public class TripServiceImpl implements TripService {
 		// 시작일을 바꾸면 모든 DAY 날짜가 함께 이동한다
 		mapper.updateStartDate(tripId, java.sql.Date.valueOf(period[0]));
 
-		// TODO(양지호): DayService.syncDays(tripId, start, end)가 develop에 들어오면 아래 DAY 처리를 그 호출로 바꾼다.
+		// 1A4 · 1A5. DAY 개수 맞추기 (양지호 DayService.syncDays)
+		// 늘면 마지막 DAY 뒤에 빈 DAY 추가, 줄면 뒤쪽 DAY와 그 일정 삭제
+		dayService.syncDays(tripId, java.sql.Date.valueOf(period[0]), java.sql.Date.valueOf(period[1]));
 		if (newCount < oldCount) {
-			mapper.deleteDaysAfter(tripId, newCount); // 1A5. 뒤쪽 DAY 삭제 (일정도 함께 삭제)
 			return dayRange(newCount + 1, oldCount) + "이 삭제되었습니다.";
 		}
 		if (newCount > oldCount) {
-			for (int dayNo = oldCount + 1; dayNo <= newCount; dayNo++) {
-				mapper.insertDay(tripId, dayNo); // 1A4. 마지막 DAY 뒤에 빈 DAY 추가
-			}
 			return dayRange(oldCount + 1, newCount) + "이 추가되었습니다.";
 		}
 		return "여행 정보를 저장했습니다."; // 일수는 같고 날짜만 이동

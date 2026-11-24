@@ -25,10 +25,14 @@
 		var saving = false;
 		var savedOrder = currentOrder(); // 마지막으로 서버에 저장된 순서 (실패 시 되돌릴 때 사용)
 
-		// 위치(숨은 칸)의 처음 값을 기억해 둔다 → [취소] 때 되돌림
-		$root.find('.tt-sch-lat, .tt-sch-lng').each(function () {
+		// 위치(장소 검색 조각 _placeSearch.jsp의 숨은 칸)의 처음 값을 기억해 둔다 → [취소] 때 되돌림
+		$root.find('.tt-place-lat, .tt-place-lng').each(function () {
 			$(this).data('orig', this.value);
 		});
+
+		// 전체 공개 여행은 장소 필수: 장소 검색 조각에는 required 옵션이 없어서 여기서 붙인다
+		// (서버 ScheduleServiceImpl에서도 한 번 더 검사한다)
+		$root.find('.tt-sch-form[data-require-place="true"] .tt-place-name').prop('required', true);
 
 		var sortable = (window.Sortable && $list.length) ? Sortable.create($list[0], {
 			handle: '.tt-sch-handle',     // ⠿를 잡아야만 끌린다 (버튼 · 글자 선택과 겹치지 않게)
@@ -157,9 +161,12 @@
 			var $form = $(this).closest('.tt-sch-form');
 			$form[0].reset();
 			// hidden 칸은 reset()으로 돌아오지 않으므로 처음 위치를 직접 되돌린다
-			$form.find('.tt-sch-lat, .tt-sch-lng').each(function () {
+			$form.find('.tt-place-lat, .tt-place-lng').each(function () {
 				this.value = $(this).data('orig');
 			});
+			// 장소 검색 결과 목록 · 안내 문구도 닫는다
+			$form.find('.tt-place-results').empty().hide();
+			$form.find('.tt-place-msg').text('');
 			$form.hide();
 			if ($form.hasClass('tt-sch-add-form')) {
 				$root.find('.tt-sch-add-btn').show();
@@ -168,16 +175,7 @@
 			}
 			refreshLock();
 		});
-
-		// 장소 이름을 처음 값과 다르게 고치면 위치(lat · lng)를 지운다 → 이름만 있는 장소로 저장
-		// (다른 장소 이름에 예전 위치가 붙어 지도에 엉뚱하게 찍히지 않게)
-		// TODO(송유림): UC-014 _placeSearch.jsp로 바꾸면 그 조각이 같은 일을 하므로 이 부분은 지운다
-		$root.on('input', '.tt-sch-place-input', function () {
-			if (this.value !== this.defaultValue) {
-				var $form = $(this).closest('.tt-sch-form');
-				$form.find('.tt-sch-lat, .tt-sch-lng').val('');
-			}
-		});
+		// 장소 이름을 고치면 위치를 지우는 일은 장소 검색 조각(tt-place-search.js, 윤아연)이 한다
 	}
 
 	$(function () {

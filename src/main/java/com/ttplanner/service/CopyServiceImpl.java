@@ -12,8 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ttplanner.mapper.CopyMapper;
 import com.ttplanner.vo.CopyDayVO;
-import com.ttplanner.vo.DayVO;
-import com.ttplanner.vo.TripFormVO;
 import com.ttplanner.vo.TripVO;
 
 import lombok.Setter;
@@ -24,8 +22,10 @@ import lombok.extern.log4j.Log4j;
  *
  * 다른 팀원 메서드 사용
  *   TripService.getTrip / getTripByShareToken (박준성) : 볼 수 있는 여행인지 + 내 권한(myRole)
- *   TripService.create (박준성)                         : 복사한 DAY로 새 여행 만들기
- *   DayService.findDays (양지호)                        : 넣을 여행의 DAY 개수, 새 여행의 DAY_ID
+ *   TripService.find (박준성)                           : 넣을 여행 · 원본 여행 정보 (제목, 지역, 공개 범위)
+ *   TripService.create(trip, regions, owner) (박준성)   : 복사한 DAY로 새 여행 만들기 (DAY는 만들지 않음)
+ *   MemberService.getRole (양지호)                      : 넣을 여행에서 내 권한
+ *   DayService.findDays (양지호)                        : 넣을 여행의 DAY 개수
  */
 @Log4j
 @Service
@@ -42,6 +42,9 @@ public class CopyServiceImpl implements CopyService {
 
 	@Setter(onMethod_ = @Autowired)
 	private DayService dayService;
+
+	@Setter(onMethod_ = @Autowired)
+	private MemberService memberService;
 
 	// ===================== ① DAY 선택 화면 =====================
 
@@ -93,10 +96,12 @@ public class CopyServiceImpl implements CopyService {
 	@Transactional
 	@Override
 	public String insert(Long userId, Long targetTripId, int position, List<Long> copyDays) {
-		// 넣을 여행: 볼 수 있어야 하고(getTrip), 내 권한이 OWNER · EDITOR
-		// TODO(양지호): MemberService.getRole(tripId, userId)가 develop에 들어오면 그것으로 권한을 확인한다.
-		TripVO target = tripService.getTrip(targetTripId, userId);
-		String role = target.getMyRole();
+		// 넣을 여행: 삭제되지 않았고(find), 내 권한이 OWNER · EDITOR (MemberService.getRole, 양지호)
+		TripVO target = tripService.find(targetTripId);
+		if (target == null) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+		String role = memberService.getRole(targetTripId, userId);
 		if (!"OWNER".equals(role) && !"EDITOR".equals(role)) {
 			throw new IllegalStateException("복사한 DAY는 내가 OWNER · EDITOR인 여행에만 넣을 수 있습니다.");
 		}
@@ -119,30 +124,26 @@ public class CopyServiceImpl implements CopyService {
 		Long sourceTripId = sources.get(0).getTripId();
 
 		// 입력 화면 없이 만든다: 제목 '원본 제목 (복사)', 시작일 오늘, 지역은 원본과 같게 (구성정의서 8장 나.)
-		// TODO(박준성): TripService.find(tripId)가 develop에 들어오면 원본 제목 · 지역을 그것으로 가져온다.
-		String title = mapper.getSourceTitle(sourceTripId);
+		// 원본 제목 · 지역은 TripService.find(박준성)로 가져온다
+		TripVO source = tripService.find(sourceTripId);
+		if (source == null) {
+			throw new IllegalStateException("복사한 DAY의 여행이 삭제되었습니다. [복사 취소] 후 다시 복사해 주세요.");
+		}
+		String title = source.getTitle();
 		int maxLength = TripService.TITLE_MAX_LENGTH - COPY_SUFFIX.length();
 		if (title.length() > maxLength) {
 			title = title.substring(0, maxLength);
 		}
-		LocalDate today = LocalDate.now();
 
-		TripFormVO form = new TripFormVO();
-		form.setTitle(title + COPY_SUFFIX);
-		form.setStartDate(today.toString());
-		form.setEndDate(today.plusDays(sources.size() - 1).toString());
-		form.setRegions(mapper.getSourceRegions(sourceTripId));
+		TripVO trip = new TripVO();
+		trip.setTitle(title + COPY_SUFFIX);
+		trip.setStartDate(java.sql.Date.valueOf(LocalDate.now()));
 
-		// 비공개 여행 + OWNER 등록 + 빈 DAY(복사한 DAY 수만큼)까지 만들어진다
-		Long newTripId = tripService.create(userId, form);
+		// 비공개 여행 + 지역 + OWNER 등록 + 공유 링크까지 만든다 (DAY는 만들지 않음 → DAY 0개)
+		Long newTripId = tripService.create(trip, source.getRegions(), userId);
 
-		// 만들어진 빈 DAY 1, 2, … 에 원본 DAY의 일정을 차례로 복사한다 (새 여행은 비공개라 일정 전부)
-		// TODO(박준성): TripService.create가 DAY를 만들지 않게 바뀌면(구성정의서 8장 나.)
-		//               아래 반복문을 insertDays(newTripId, 0, copyDays) 한 줄로 바꾼다.
-		List<DayVO> newDays = dayService.findDays(newTripId);
-		for (int i = 0; i < sources.size(); i++) {
-			mapper.copySchedules(newDays.get(i).getDayId(), sources.get(i).getDayId(), newTripId);
-		}
+		// 빈 여행의 맨 앞(position 0)에 복사한 DAY와 일정을 넣는다 → DAY 1, 2, … (새 여행은 비공개라 일정 전부)
+		insertDays(newTripId, 0, copyDays);
 		log.info("createTrip: newTripId=" + newTripId + ", copyDays=" + copyDays);
 		return newTripId;
 	}
