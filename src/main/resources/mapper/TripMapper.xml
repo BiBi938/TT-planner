@@ -66,14 +66,6 @@
 		 order by <include refid="regionOrder"/>
 	</select>
 
-	<select id="getRole" resultType="string">
-		select role
-		  from trip_member
-		 where trip_id = #{tripId}
-		   and user_id = #{userId}
-		   and status = 'JOINED'
-	</select>
-
 	<!-- ================= UC-008 여행 생성 ================= -->
 
 	<!-- 공개 범위는 항상 비공개. DEL_YN, CREATED_AT은 테이블 기본값('N', sysdate) -->
