@@ -26,7 +26,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j;
 
 /**
- * 멤버 초대 요청 (UC-017) · 담당: 양지호
+ * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) 요청 · 담당: 양지호
  *
  * GET  /api/trips/{tripId}/members/search?nickname=이   (Ajax, 초대 창의 회원 검색)
  *   성공 (0명 포함)        200  {"users": [{"userId": 40, "nickname": "요청한이", ...}, ...]}
@@ -36,6 +36,15 @@ import lombok.extern.log4j.Log4j;
  * POST /trips/{tripId}/members   (폼 제출, 초대 창의 [초대])
  *   결과 문구를 flash "memberMsg"로 담아 여행 상세(/trips/{tripId}, 박준성)로 이동 → trip/_members.jsp에서 출력
  *   ("msg"는 _days.jsp가 쓰므로 이름을 나눔)
+ *
+ * POST /api/trips/{tripId}/members/{userId}/role   role=VIEWER   (Ajax, UC-018 권한 변경 · 드래그)
+ *   성공 · 이미 같은 권한   200  {"message": "편집러 님 권한을 VIEWER로 바꿨습니다.", "role": "VIEWER"}
+ *   권한 없음 · 멤버 아님 등 400  {"message": "..."}
+ *   로그인 안 함            401  LoginInterceptor
+ *
+ * POST /trips/{tripId}/members/{userId}/kick    (폼 제출, UC-018 내보내기 5A)
+ * POST /trips/{tripId}/members/{userId}/owner   (폼 제출, UC-018 OWNER 넘기기 5B)
+ *   결과 문구를 flash "memberMsg"로 담아 /trips/{tripId}로 이동 (invite와 같음)
  *
  * 권한 검사(OWNER만)는 MemberService가 한다.
  */
@@ -88,6 +97,68 @@ public class MemberController {
 			rttr.addFlashAttribute("memberMsg", msg);
 		} catch (IllegalStateException e) {
 			// 7A · 7B · 7C, 권한 없음 등 → Service 문구를 그대로 보여 준다
+			rttr.addFlashAttribute("memberMsg", e.getMessage());
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	// ===== UC-018 =====
+
+	// 권한 변경 (Ajax): POST /api/trips/1/members/20/role  (role=VIEWER)
+	// 메뉴 [권한 변경]과 드래그(3A) 모두 이 주소로 보낸다
+	@PostMapping("/api/trips/{tripId}/members/{userId}/role")
+	@ResponseBody
+	public ResponseEntity<Map<String, Object>> changeRole(@PathVariable("tripId") Long tripId,
+			@PathVariable("userId") Long targetUserId,
+			@RequestParam(value = "role", required = false) String role, HttpSession session) {
+		log.info("changeRole......" + tripId + ", target=" + targetUserId + ", role=" + role);
+
+		Map<String, Object> body = new HashMap<String, Object>();
+		try {
+			String msg = service.changeRole(tripId, targetUserId, role, loginUserId(session));
+			body.put("message", msg);
+			body.put("role", role); // 화면이 이름을 옮길 칸 (EDITOR 또는 VIEWER)
+			return ResponseEntity.ok(body); // 200
+		} catch (IllegalStateException e) {
+			// 권한 없음, 잘못된 권한, 멤버 아님, 대상이 OWNER → 400 + 문구 (화면은 드래그했으면 원래 칸으로 되돌림)
+			body.put("message", e.getMessage());
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+		}
+	}
+
+	// 내보내기 (폼 제출): POST /trips/1/members/20/kick
+	@PostMapping("/trips/{tripId}/members/{userId}/kick")
+	public String kick(@PathVariable("tripId") Long tripId, @PathVariable("userId") Long targetUserId,
+			HttpSession session, RedirectAttributes rttr) {
+		log.info("kick......" + tripId + ", target=" + targetUserId);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("memberMsg", service.kick(tripId, targetUserId, userId));
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("memberMsg", e.getMessage());
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	// OWNER 넘기기 (폼 제출): POST /trips/1/members/20/owner
+	@PostMapping("/trips/{tripId}/members/{userId}/owner")
+	public String transferOwner(@PathVariable("tripId") Long tripId, @PathVariable("userId") Long targetUserId,
+			HttpSession session, RedirectAttributes rttr) {
+		log.info("transferOwner......" + tripId + ", target=" + targetUserId);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("memberMsg", service.transferOwner(tripId, targetUserId, userId));
+		} catch (IllegalStateException e) {
 			rttr.addFlashAttribute("memberMsg", e.getMessage());
 		}
 		return "redirect:/trips/" + tripId;

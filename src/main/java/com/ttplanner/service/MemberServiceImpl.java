@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.ttplanner.mapper.MemberMapper;
 import com.ttplanner.vo.MemberVO;
@@ -98,5 +99,129 @@ public class MemberServiceImpl implements MemberService {
 	public List<MemberVO> findByTrip(Long tripId) {
 		log.info("findByTrip......" + tripId);
 		return mapper.findByTrip(tripId);
+	}
+
+	// UC-018 권한 변경 (EDITOR ↔ VIEWER)
+	// 메뉴 [권한 변경]과 드래그(3A) 모두 이 메서드를 부른다 (MemberController Ajax)
+	// UPDATE 한 줄뿐이라 @Transactional은 붙이지 않는다
+	@Override
+	public String changeRole(Long tripId, Long targetUserId, String role, Long userId) {
+		log.info("changeRole......trip " + tripId + ", target " + targetUserId + " → " + role + ", by " + userId);
+
+		// ① 바꾸는 사람이 이 여행의 OWNER인가 (로그인 안 함 → getRole이 null → 여기서 막힘)
+		if (!"OWNER".equals(getRole(tripId, userId))) {
+			throw new IllegalStateException("멤버 권한을 바꿀 권한이 없습니다.");
+		}
+
+		// ② 새 권한은 EDITOR 또는 VIEWER만 (OWNER로 바꾸기는 OWNER 넘기기에서)
+		if (!"EDITOR".equals(role) && !"VIEWER".equals(role)) {
+			throw new IllegalStateException("바꿀 권한(EDITOR 또는 VIEWER)을 고르세요.");
+		}
+
+		// ③ 대상이 참여 중인 멤버인가 (없는 회원 · 초대 중 · 참여 요청 중은 막음)
+		MemberVO target = (targetUserId == null) ? null : mapper.getMember(tripId, targetUserId);
+		if (target == null || !"JOINED".equals(target.getStatus())) {
+			throw new IllegalStateException("멤버를 찾을 수 없습니다.");
+		}
+
+		// ④ 대상이 OWNER면 막음 (OWNER인 나 자신도 여기서 막힌다)
+		if ("OWNER".equals(target.getRole())) {
+			throw new IllegalStateException("OWNER의 권한은 바꿀 수 없습니다. OWNER 넘기기를 이용하세요.");
+		}
+
+		// ⑤ 이미 같은 권한이면 DB를 바꾸지 않고 안내만
+		if (role.equals(target.getRole())) {
+			return target.getNickname() + " 님은 이미 " + role + "입니다.";
+		}
+
+		// ⑥ 바꾸기 (그사이 누가 내보냈으면 0줄)
+		int updated = mapper.updateRole(tripId, targetUserId, role);
+		if (updated == 0) {
+			throw new IllegalStateException("멤버를 찾을 수 없습니다.");
+		}
+		return target.getNickname() + " 님 권한을 " + role + "로 바꿨습니다.";
+	}
+
+	// UC-018 내보내기 (5A)
+	// 지우는 건 TRIP_MEMBER 한 줄뿐 → 그 사람이 넣은 일정은 여행에 남는다 (SCHEDULE에 작성자 칸 없음)
+	// DELETE 한 줄뿐이라 @Transactional은 붙이지 않는다
+	@Override
+	public String kick(Long tripId, Long targetUserId, Long userId) {
+		log.info("kick......trip " + tripId + ", target " + targetUserId + ", by " + userId);
+
+		// ① 내보내는 사람이 이 여행의 OWNER인가
+		if (!"OWNER".equals(getRole(tripId, userId))) {
+			throw new IllegalStateException("멤버를 내보낼 권한이 없습니다.");
+		}
+
+		// ② 대상이 참여 중인 멤버인가 (초대 중 · 참여 요청 중은 내보내기 대상 아님)
+		MemberVO target = (targetUserId == null) ? null : mapper.getMember(tripId, targetUserId);
+		if (target == null || !"JOINED".equals(target.getStatus())) {
+			throw new IllegalStateException("멤버를 찾을 수 없습니다.");
+		}
+
+		// ③ OWNER는 내보낼 수 없음 (OWNER인 나 자신도 여기서 막힌다)
+		if ("OWNER".equals(target.getRole())) {
+			throw new IllegalStateException("OWNER는 내보낼 수 없습니다.");
+		}
+
+		// ④ 지우기 (그사이 다른 곳에서 지워졌으면 0줄)
+		int deleted = mapper.deleteMember(tripId, targetUserId);
+		if (deleted == 0) {
+			throw new IllegalStateException("멤버를 찾을 수 없습니다.");
+		}
+		return target.getNickname() + " 님을 내보냈습니다.";
+	}
+
+	// UC-018 OWNER 넘기기 (5B)
+	// UPDATE 두 번을 한 묶음으로: ④ 나를 EDITOR로 내리기 → ⑤ 대상을 OWNER로 올리기
+	//  - 순서: 올리기를 먼저 하면 OWNER가 잠깐 2명 → uk_trip_member_owner(여행당 OWNER 1명) 오류 ORA-00001
+	//  - @Transactional: ⑤가 실패하면 ④도 취소 → OWNER가 0명인 여행이 생기지 않는다 (팀 규칙: OWNER 넘기기)
+	@Transactional
+	@Override
+	public String transferOwner(Long tripId, Long targetUserId, Long userId) {
+		log.info("transferOwner......trip " + tripId + ", " + userId + " → " + targetUserId);
+
+		// ① 넘기는 사람이 이 여행의 OWNER인가
+		if (!"OWNER".equals(getRole(tripId, userId))) {
+			throw new IllegalStateException("OWNER를 넘길 권한이 없습니다.");
+		}
+
+		// ② 대상이 참여 중인 멤버인가 (EDITOR · VIEWER 모두 가능, 초대 중 · 참여 요청 중은 안 됨)
+		MemberVO target = (targetUserId == null) ? null : mapper.getMember(tripId, targetUserId);
+		if (target == null || !"JOINED".equals(target.getStatus())) {
+			throw new IllegalStateException("멤버를 찾을 수 없습니다.");
+		}
+
+		// ③ 대상이 OWNER = 나 자신 (①에서 내가 OWNER임을 확인했고, OWNER는 여행당 1명)
+		if ("OWNER".equals(target.getRole())) {
+			throw new IllegalStateException("자기 자신에게는 OWNER를 넘길 수 없습니다.");
+		}
+
+		// 결과 문구에 쓸 내 닉네임
+		MemberVO me = mapper.getMember(tripId, userId);
+
+		// ④ 나를 먼저 EDITOR로 내리기
+		if (mapper.updateRole(tripId, userId, "EDITOR") == 0) {
+			throw new IllegalStateException("OWNER를 넘기지 못했습니다. 다시 시도해 주세요.");
+		}
+
+		// ⑤ 대상을 OWNER로 올리기 (그사이 대상이 나갔으면 0줄 → 예외 → ④도 롤백)
+		if (mapper.updateRole(tripId, targetUserId, "OWNER") == 0) {
+			throw new IllegalStateException("멤버를 찾을 수 없습니다.");
+		}
+
+		return target.getNickname() + " 님이 새 OWNER가 되었습니다. " + me.getNickname() + " 님은 EDITOR입니다.";
+	}
+
+	// 회원 탈퇴 연결: 검사할 규칙이 없어 Mapper를 그대로 부른다
+	// 윤아연 withdraw()의 @Transactional 안에서 불리므로, 탈퇴 중 오류가 나면 이 삭제도 함께 되돌려진다
+	@Override
+	public int deleteByUser(Long userId) {
+		log.info("deleteByUser......" + userId);
+		if (userId == null) {
+			return 0;
+		}
+		return mapper.deleteByUser(userId);
 	}
 }

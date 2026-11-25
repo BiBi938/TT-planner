@@ -81,4 +81,46 @@
 		         u.nickname
 	</select>
 
+	<!-- UC-018 이 여행의 멤버 한 명
+	     - findByTrip과 같은 JOIN이지만 한 사람(trip_id + user_id = PK)만 → 많아야 1줄
+	     - STATUS로 거르지 않는다 → Service가 status를 보고 "참여 중인 멤버인가"를 판단 -->
+	<select id="getMember" resultType="com.ttplanner.vo.MemberVO">
+		select m.trip_id, m.user_id, u.nickname, m.role, m.status
+		from trip_member m
+		join users u on m.user_id = u.user_id
+		where m.trip_id = #{tripId}
+		  and m.user_id = #{userId}
+		  and u.del_yn = 'N'
+	</select>
+
+	<!-- UC-018 권한 바꾸기
+	     - status = 'JOINED' 조건: 초대 중(INVITED) 줄의 권한은 바꾸지 않는다 (안전장치, 검사는 Service에서 먼저)
+	     - OWNER 넘기기에서는 두 번 부른다: ① 기존 OWNER → 'EDITOR' ② 새 OWNER → 'OWNER'
+	       순서를 바꾸면 OWNER가 잠깐 2명 → uk_trip_member_owner(여행당 OWNER 1명) 때문에 ORA-00001 -->
+	<update id="updateRole">
+		update trip_member
+		set role = #{role}
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+		  and status = 'JOINED'
+	</update>
+
+	<!-- UC-018 내보내기 · UC-019 나가기 · UC-025 거절: 이 여행에서 이 회원의 줄 하나 지우기
+	     - STATUS 조건 없음 → 거절(INVITED 줄)에도 쓸 수 있게. 누구를 지워도 되는지는 Service가 검사 -->
+	<delete id="deleteMember">
+		delete from trip_member
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+	</delete>
+
+	<!-- 회원 탈퇴(UC-024) 연결: 이 회원의 OWNER가 아닌 줄을 모두 지운다
+	     - OWNER 줄은 남긴다 (그 여행은 탈퇴 ①단계 TripService.deleteByOwner가 이미 삭제 표시)
+	     - (role is null or ...)가 꼭 필요하다: 참여 요청(REQUESTED) 줄은 ROLE이 NULL인데,
+	       NULL &lt;&gt; 'OWNER'는 참도 거짓도 아닌 "모름"이라 where에서 빠져 버린다 -->
+	<delete id="deleteByUser">
+		delete from trip_member
+		where user_id = #{userId}
+		  and (role is null or role &lt;&gt; 'OWNER')
+	</delete>
+
 </mapper>
