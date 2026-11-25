@@ -95,7 +95,8 @@
 
 			<%-- 일정 목록 (송유림, UC-013). c:forEach의 day는 조각으로 넘어가지 않으므로 dayId를 param으로 넘긴다 --%>
 			<jsp:include page="_schedules.jsp"><jsp:param name="dayId" value="${day.dayId}"/></jsp:include>
-			<%-- TODO(윤아연): UC-006 [지도] 버튼 자리 --%>
+			<%-- [지도] 이 DAY만 지도에 보기 (UC-006, 윤아연 tt-map.js가 .tt-map-day-btn 클릭을 받아 ttMap.showDay(DAY 번호)) --%>
+			<button type="button" class="btn btn-default btn-xs tt-map-day-btn" data-day="<c:out value='${day.dayNo}'/>"><i class="fa fa-map-marker"></i> 지도</button>
 		</div>
 	</div>
 
