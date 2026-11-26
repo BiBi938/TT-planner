@@ -180,6 +180,45 @@
 		values (#{tripId}, #{userId}, null, 'REQUESTED')
 	</insert>
 
+	<!-- UC-027 내가 OWNER인 여행들에 온 참여 요청 목록
+	       r = TRIP_MEMBER의 "요청 줄"(REQUESTED)       → 어느 여행, 누가 요청했는지
+	       o = TRIP_MEMBER의 "내 OWNER 줄"              → 이 조건으로 "내가 OWNER인 여행"만 남긴다
+	       t = TRIP                                     → 여행 제목, 삭제 여부
+	       u = USERS                                    → 요청한 회원 닉네임, 탈퇴 여부
+	     (UC-025 findInvites와 반대 방향: 그때는 "내 줄 + 그 여행의 OWNER", 이번엔 "내 OWNER 줄 + 그 여행의 요청 줄") -->
+	<select id="findJoinRequests" resultType="com.ttplanner.vo.JoinRequestVO">
+		select r.trip_id, t.title, r.user_id, u.nickname
+		from trip_member r
+		join trip_member o on o.trip_id = r.trip_id and o.user_id = #{ownerUserId} and o.role = 'OWNER'
+		join trip t on t.trip_id = r.trip_id
+		join users u on u.user_id = r.user_id
+		where r.status = 'REQUESTED'
+		  and t.del_yn = 'N'
+		  and u.del_yn = 'N'
+		order by r.trip_id desc, u.nickname
+	</select>
+
+	<!-- UC-027 참여 요청 수락
+	     - ROLE과 STATUS를 한 문장에서 같이 바꾼다: DB 검사 규칙 ck_trip_member_role_status가 "JOINED면 ROLE이 있어야 함"
+	       → STATUS만 먼저 바꾸면 그 순간 ROLE이 NULL이라 규칙 위반. 한 문장이면 바뀐 결과만 검사해서 통과
+	     - status = 'REQUESTED' 조건: 이미 처리된 요청 · 멤버 · 초대 줄은 바꾸지 않는다 (6A) -->
+	<update id="acceptRequest">
+		update trip_member
+		set role = #{role},
+		    status = 'JOINED'
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+		  and status = 'REQUESTED'
+	</update>
+
+	<!-- UC-027 삭제되지 않은 여행인가 (6B) -->
+	<select id="countActiveTrip" resultType="int">
+		select count(*)
+		from trip
+		where trip_id = #{tripId}
+		  and del_yn = 'N'
+	</select>
+
 	<!-- 회원 탈퇴(UC-024) 연결: 이 회원의 OWNER가 아닌 줄을 모두 지운다
 	     - OWNER 줄은 남긴다 (그 여행은 탈퇴 ①단계 TripService.deleteByOwner가 이미 삭제 표시)
 	     - (role is null or ...)가 꼭 필요하다: 참여 요청(REQUESTED) 줄은 ROLE이 NULL인데,

@@ -5,6 +5,7 @@ import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 import com.ttplanner.vo.InviteVO;
+import com.ttplanner.vo.JoinRequestVO;
 import com.ttplanner.vo.MemberVO;
 
 /**
@@ -65,6 +66,17 @@ public interface MemberMapper {
 
 	// UC-026 참여 요청: TRIP_MEMBER에 (ROLE = NULL, STATUS = 'REQUESTED')로 한 줄 넣는다. 넣은 줄 수(1)
 	int insertRequest(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
+	// UC-027 내가 OWNER인 여행들에 온 참여 요청 목록 (삭제된 여행 · 탈퇴한 요청자 제외, 여행 번호 큰 순 → 닉네임 순)
+	// 없으면 빈 목록
+	List<JoinRequestVO> findJoinRequests(Long ownerUserId);
+
+	// UC-027 참여 요청 수락: REQUESTED 줄의 ROLE을 role(EDITOR · VIEWER)로 채우고 STATUS를 'JOINED'로 (한 문장에서 같이)
+	// 바꾼 줄 수(1 또는 0). 거절은 새 SQL 없이 deleteMember를 쓴다
+	int acceptRequest(@Param("tripId") Long tripId, @Param("userId") Long userId, @Param("role") String role);
+
+	// UC-027 삭제되지 않은 여행인가 → 1 또는 0 (6B: 그사이 여행이 삭제됐으면 "권한이 없습니다.")
+	int countActiveTrip(Long tripId);
 
 	// 회원 탈퇴(UC-024, 윤아연) 연결: 이 회원의 TRIP_MEMBER 줄 중 OWNER가 아닌 것을 모두 지운다
 	// 참여 중(EDITOR · VIEWER) · 받은 초대(INVITED) · 보낸 참여 요청(REQUESTED). 지운 줄 수를 돌려준다

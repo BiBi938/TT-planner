@@ -26,7 +26,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j;
 
 /**
- * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) · 초대 응답 (UC-025) · 참여 요청 (UC-026) 요청 · 담당: 양지호
+ * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) · 초대 응답 (UC-025) · 참여 요청 (UC-026) · 참여 요청 처리 (UC-027) 요청 · 담당: 양지호
  *
  * GET  /api/trips/{tripId}/members/search?nickname=이   (Ajax, 초대 창의 회원 검색)
  *   성공 (0명 포함)        200  {"users": [{"userId": 40, "nickname": "요청한이", ...}, ...]}
@@ -57,6 +57,10 @@ import lombok.extern.log4j.Log4j;
  * POST /trips/{tripId}/members/request   token=(공유 링크로 열었을 때만)   (폼 제출, UC-026 참여 요청)
  *   성공 · 실패 모두 flash "tripMsg" + 원래 여행 상세 화면으로 (detail.jsp가 tripMsg 출력)
  *   token 있으면 /s/{token}, 없으면 /trips/{tripId} (비공개 여행은 /trips/{id}로 볼 수 없으므로)
+ *
+ * POST /trips/{tripId}/requests/{userId}/accept   role=EDITOR|VIEWER   (폼 제출, UC-027 참여 요청 수락)
+ * POST /trips/{tripId}/requests/{userId}/reject                         (폼 제출, UC-027 참여 요청 거절 5A)
+ *   결과 문구를 flash "memberMsg"로 담아 /trips/{tripId}로 이동 → 멤버 목록 창이 다시 열림 (레드마인 7)
  *
  * 권한 검사(OWNER만, 나가기는 참여 중인 EDITOR · VIEWER만, 초대 응답은 초대받은 본인만)는 MemberService가 한다.
  */
@@ -263,6 +267,47 @@ public class MemberController {
 			// addAttribute로 넘기면 스프링이 {token} 자리에 넣으면서 주소에 쓸 수 없는 글자를 안전하게 바꿔 준다
 			rttr.addAttribute("token", token.trim());
 			return "redirect:/s/{token}";
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	// ===== UC-027 =====
+
+	// 참여 요청 수락 (폼 제출): POST /trips/1/requests/40/accept  (role=EDITOR)
+	@PostMapping("/trips/{tripId}/requests/{userId}/accept")
+	public String acceptRequest(@PathVariable("tripId") Long tripId, @PathVariable("userId") Long targetUserId,
+			@RequestParam(value = "role", required = false) String role,
+			HttpSession session, RedirectAttributes rttr) {
+		log.info("acceptRequest......" + tripId + ", target=" + targetUserId + ", role=" + role);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("memberMsg", service.acceptRequest(tripId, targetUserId, role, userId));
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("memberMsg", e.getMessage());
+		}
+		return "redirect:/trips/" + tripId;
+	}
+
+	// 참여 요청 거절 (폼 제출): POST /trips/1/requests/40/reject
+	@PostMapping("/trips/{tripId}/requests/{userId}/reject")
+	public String rejectRequest(@PathVariable("tripId") Long tripId, @PathVariable("userId") Long targetUserId,
+			HttpSession session, RedirectAttributes rttr) {
+		log.info("rejectRequest......" + tripId + ", target=" + targetUserId);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("memberMsg", service.rejectRequest(tripId, targetUserId, userId));
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("memberMsg", e.getMessage());
 		}
 		return "redirect:/trips/" + tripId;
 	}
