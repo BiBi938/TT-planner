@@ -214,6 +214,31 @@ public class MemberServiceImpl implements MemberService {
 		return target.getNickname() + " 님이 새 OWNER가 되었습니다. " + me.getNickname() + " 님은 EDITOR입니다.";
 	}
 
+	// UC-019 여행 나가기
+	// UC-018 내보내기(kick)와 같은 SQL(deleteMember). 다른 점: 지우는 사람이 OWNER가 아니라 "나 자신"
+	// 나간 여행은 내 여행 목록에서 저절로 사라진다 (박준성 getMyTrips가 JOINED 줄만 봄)
+	@Override
+	public String leave(Long tripId, Long userId) {
+		log.info("leave......trip " + tripId + ", user " + userId);
+
+		// ① 이 여행의 참여 중인 멤버인가 (로그인 안 함 · 초대 중 · 참여 요청 중 · 줄 없음은 막음)
+		MemberVO me = (userId == null) ? null : mapper.getMember(tripId, userId);
+		if (me == null || !"JOINED".equals(me.getStatus())) {
+			throw new IllegalStateException("이 여행의 멤버가 아닙니다.");
+		}
+
+		// ② OWNER는 나갈 수 없음 (2A: 화면에서도 버튼을 안 보여 주지만 주소로 직접 보내는 경우 대비)
+		if ("OWNER".equals(me.getRole())) {
+			throw new IllegalStateException("OWNER는 여행에서 나갈 수 없습니다. 다른 멤버에게 OWNER를 넘긴 뒤 나가세요.");
+		}
+
+		// ③ 내 줄 지우기 (그사이 OWNER가 내보냈으면 0줄)
+		if (mapper.deleteMember(tripId, userId) == 0) {
+			throw new IllegalStateException("이 여행의 멤버가 아닙니다.");
+		}
+		return "여행에서 나갔습니다.";
+	}
+
 	// 회원 탈퇴 연결: 검사할 규칙이 없어 Mapper를 그대로 부른다
 	// 윤아연 withdraw()의 @Transactional 안에서 불리므로, 탈퇴 중 오류가 나면 이 삭제도 함께 되돌려진다
 	@Override

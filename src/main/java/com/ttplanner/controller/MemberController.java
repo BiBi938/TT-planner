@@ -26,7 +26,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j;
 
 /**
- * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) 요청 · 담당: 양지호
+ * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) 요청 · 담당: 양지호
  *
  * GET  /api/trips/{tripId}/members/search?nickname=이   (Ajax, 초대 창의 회원 검색)
  *   성공 (0명 포함)        200  {"users": [{"userId": 40, "nickname": "요청한이", ...}, ...]}
@@ -46,7 +46,11 @@ import lombok.extern.log4j.Log4j;
  * POST /trips/{tripId}/members/{userId}/owner   (폼 제출, UC-018 OWNER 넘기기 5B)
  *   결과 문구를 flash "memberMsg"로 담아 /trips/{tripId}로 이동 (invite와 같음)
  *
- * 권한 검사(OWNER만)는 MemberService가 한다.
+ * POST /trips/{tripId}/members/leave   (폼 제출, UC-019 여행 나가기)
+ *   성공 → flash "tripMsg"(내 여행 화면 trip/list.jsp가 출력, 박준성) + redirect:/trips
+ *   실패(멤버 아님 · OWNER) → flash "memberMsg" + redirect:/trips/{tripId} (멤버 목록 창이 다시 열림)
+ *
+ * 권한 검사(OWNER만, 나가기는 참여 중인 EDITOR · VIEWER만)는 MemberService가 한다.
  */
 @Controller
 @Log4j
@@ -162,6 +166,28 @@ public class MemberController {
 			rttr.addFlashAttribute("memberMsg", e.getMessage());
 		}
 		return "redirect:/trips/" + tripId;
+	}
+
+	// ===== UC-019 =====
+
+	// 여행 나가기 (폼 제출): POST /trips/1/members/leave
+	// 나가면 이 여행을 더 볼 수 없으므로 내 여행 화면으로 이동한다 (레드마인 5)
+	@PostMapping("/trips/{tripId}/members/leave")
+	public String leave(@PathVariable("tripId") Long tripId, HttpSession session, RedirectAttributes rttr) {
+		log.info("leave......" + tripId);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("tripMsg", service.leave(tripId, userId)); // list.jsp가 출력하는 이름
+			return "redirect:/trips";
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("memberMsg", e.getMessage());
+			return "redirect:/trips/" + tripId;
+		}
 	}
 
 	// 세션의 로그인 회원 번호 (로그인 안 했으면 null)

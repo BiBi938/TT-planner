@@ -50,6 +50,12 @@ public interface MemberService {
 	// OWNER 아님, 멤버 아님(초대 중 · 참여 요청 포함), 대상이 나 자신이면 IllegalStateException
 	public String transferOwner(Long tripId, Long targetUserId, Long userId);
 
+	// UC-019 여행 나가기: 로그인 회원 userId가 스스로 이 여행에서 빠진다 (TRIP_MEMBER 줄 삭제)
+	// 참여 중인 EDITOR · VIEWER만 나갈 수 있다. OWNER는 UC-018로 넘긴 뒤 나갈 수 있다 (2A)
+	// 결과 문구 "여행에서 나갔습니다."를 돌려줌
+	// 멤버가 아니거나(로그인 안 함 · 초대 중 · 참여 요청 포함) OWNER면 IllegalStateException
+	public String leave(Long tripId, Long userId);
+
 	// 회원 탈퇴(UC-024, 윤아연 UserServiceImpl.withdraw) 연결: 이 회원을 모든 여행에서 뺀다 → 지운 줄 수
 	// 참여 중(EDITOR · VIEWER), 받은 초대(INVITED), 보낸 참여 요청(REQUESTED) 줄을 지운다
 	// OWNER 줄은 남긴다 (그 여행은 탈퇴 ①단계 TripService.deleteByOwner가 이미 삭제 표시). userId가 null이면 0
