@@ -23,7 +23,10 @@
         드래그(3A, SortableJS): 이름을 반대 칸에 놓으면 [권한 변경]과 같은 Ajax, 같은 칸이면 아무 일 없음,
         OWNER 칸에 놓으면 원래 자리로 돌려놓고 5B 확인 상자. 실패하면 원래 칸으로 되돌림
 
-  범위: S-06의 1 · 2 · 3 · 4 · 5 · 6 · 7 · 9
+  UC-019 (OWNER가 아닌 멤버가 볼 때): 내 이름 옆 [여행 나가기] → 같은 확인 상자 → POST /trips/{tripId}/members/leave
+        본인 판단: m.userId == sessionScope.loginUser.userId (세션 보관함의 로그인 회원). OWNER에게는 버튼 없음(2A)
+
+  범위: S-06의 1 · 2 · 3 · 4 · 5 · 6 · 7 · 9 · 10
   나중(다른 UC): 참여 요청 처리, 여행 나가기(UC-019)
 --%>
 
@@ -114,7 +117,13 @@
 													</div>
 												</c:when>
 												<%-- EDITOR · VIEWER가 볼 때: 이름 글자만 (메뉴 HTML이 아예 안 써짐) --%>
-												<c:otherwise><c:out value="${m.nickname}" /></c:otherwise>
+												<c:otherwise>
+													<c:out value="${m.nickname}" />
+													<%-- UC-019 10. 내 이름 옆에만 [여행 나가기] (OWNER는 위 c:when으로 가서 이 버튼이 없음 = 2A) --%>
+													<c:if test="${m.userId == sessionScope.loginUser.userId}">
+														<button type="button" class="btn btn-link btn-xs text-danger tt-act-leave">여행 나가기</button>
+													</c:if>
+												</c:otherwise>
 											</c:choose>
 										</li>
 									</c:if>
@@ -139,17 +148,17 @@
 					</div>
 				</c:if>
 
-				<%-- 5A · 5B 확인 상자 (OWNER만): 메뉴의 [내보내기] · [OWNER 넘기기]를 누르면 JS가 문구와 action을 채워 보여 준다
-				     [확인] → 폼 제출 POST /trips/{tripId}/members/{userId}/kick 또는 /owner, [취소] → 상자만 닫음 --%>
-				<c:if test="${trip.owner}">
-					<div id="memberConfirm" class="tt-member-confirm" style="display: none;">
-						<p id="memberConfirmText"></p>
-						<form id="memberConfirmForm" method="post" action="" class="text-right">
-							<button type="button" class="btn btn-default btn-sm" id="memberConfirmCancel">취소</button>
-							<button type="submit" class="btn btn-danger btn-sm" id="memberConfirmOk">확인</button>
-						</form>
-					</div>
-				</c:if>
+				<%-- 확인 상자 (모든 멤버 화면): JS가 문구와 action을 채워 보여 준다, [취소] → 상자만 닫음
+				     UC-018 OWNER 메뉴 [내보내기] · [OWNER 넘기기] → POST /trips/{tripId}/members/{userId}/kick 또는 /owner
+				     UC-019 [여행 나가기] → POST /trips/{tripId}/members/leave
+				     (이 조각은 detail.jsp가 멤버에게만 넣으므로 보는 사람은 항상 멤버) --%>
+				<div id="memberConfirm" class="tt-member-confirm" style="display: none;">
+					<p id="memberConfirmText"></p>
+					<form id="memberConfirmForm" method="post" action="" class="text-right">
+						<button type="button" class="btn btn-default btn-sm" id="memberConfirmCancel">취소</button>
+						<button type="submit" class="btn btn-danger btn-sm" id="memberConfirmOk">확인</button>
+					</form>
+				</div>
 			</div>
 
 			<%-- 7. [+ 멤버 초대] OWNER만 --%>
@@ -391,6 +400,14 @@
 			var $item = memberItem(this);
 			openMemberConfirm($item.attr('data-nickname') + ' 님을 이 여행에서 내보냅니다.',
 				memberUrl + $item.attr('data-user-id') + '/kick', '내보내기');
+		});
+
+		// UC-019 3. [여행 나가기] → "이 여행에서 나갑니다. 다시 참여하려면 OWNER의 초대가 필요합니다."
+		//          4. [나가기] → 폼 제출 / 4A. [취소] → 상자만 닫고 멤버로 남음
+		$('#membersModal').on('click', '.tt-act-leave', function (e) {
+			e.preventDefault();
+			openMemberConfirm('이 여행에서 나갑니다. 다시 참여하려면 OWNER의 초대가 필요합니다.',
+				memberUrl + 'leave', '나가기');
 		});
 
 		// 5B. [OWNER 넘기기] → "○○ 님에게 OWNER를 넘깁니다. △△ 님은 EDITOR가 됩니다."
