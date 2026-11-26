@@ -71,6 +71,17 @@ public interface MemberService {
 	// 결과 문구 "초대를 거절했습니다."를 돌려줌. 응답할 초대가 없으면 IllegalStateException
 	public String rejectInvite(Long tripId, Long userId);
 
+	// UC-026 이 여행과 이 회원의 관계: "JOINED" / "INVITED" / "REQUESTED" / 관계 없음 · 로그인 안 함 → null
+	// 여행 상세 화면의 [참여 요청] 자리(trip/_join.jsp)가 버튼 · "참여 요청 중" · 초대 안내 중 무엇을 보일지 정할 때 쓴다
+	// 박준성 TripController.fillDetail이 model "myStatus"로 넣는다 (연결 메서드)
+	public String getStatus(Long tripId, Long userId);
+
+	// UC-026 참여 요청: 멤버가 아닌 로그인 회원 userId가 이 여행의 OWNER에게 참여를 요청한다 (ROLE NULL, STATUS 'REQUESTED')
+	// token = 공유 링크(/s/{token})로 열었을 때의 토큰 (비공개 여행도 요청 가능), 전체 공개 여행 화면에서는 null
+	// 결과 문구 "참여를 요청했습니다. OWNER가 수락하면 멤버가 됩니다."를 돌려줌
+	// 볼 수 없거나 삭제된 여행(6B), 이미 멤버(2B) · 요청 중(2C) · 초대받음(2D), 로그인 안 함이면 IllegalStateException
+	public String requestJoin(Long tripId, Long userId, String token);
+
 	// 회원 탈퇴(UC-024, 윤아연 UserServiceImpl.withdraw) 연결: 이 회원을 모든 여행에서 뺀다 → 지운 줄 수
 	// 참여 중(EDITOR · VIEWER), 받은 초대(INVITED), 보낸 참여 요청(REQUESTED) 줄을 지운다
 	// OWNER 줄은 남긴다 (그 여행은 탈퇴 ①단계 TripService.deleteByOwner가 이미 삭제 표시). userId가 null이면 0

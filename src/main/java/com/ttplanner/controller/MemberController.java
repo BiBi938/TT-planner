@@ -26,7 +26,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j;
 
 /**
- * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) · 초대 응답 (UC-025) 요청 · 담당: 양지호
+ * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) · 초대 응답 (UC-025) · 참여 요청 (UC-026) 요청 · 담당: 양지호
  *
  * GET  /api/trips/{tripId}/members/search?nickname=이   (Ajax, 초대 창의 회원 검색)
  *   성공 (0명 포함)        200  {"users": [{"userId": 40, "nickname": "요청한이", ...}, ...]}
@@ -53,6 +53,10 @@ import lombok.extern.log4j.Log4j;
  * POST /trips/{tripId}/members/accept   (폼 제출, UC-025 초대 수락)
  * POST /trips/{tripId}/members/reject   (폼 제출, UC-025 초대 거절 3A)
  *   성공 · 실패 모두 flash "tripMsg" + redirect:/trips (초대 목록이 있는 내 여행 화면으로 돌아감)
+ *
+ * POST /trips/{tripId}/members/request   token=(공유 링크로 열었을 때만)   (폼 제출, UC-026 참여 요청)
+ *   성공 · 실패 모두 flash "tripMsg" + 원래 여행 상세 화면으로 (detail.jsp가 tripMsg 출력)
+ *   token 있으면 /s/{token}, 없으면 /trips/{tripId} (비공개 여행은 /trips/{id}로 볼 수 없으므로)
  *
  * 권한 검사(OWNER만, 나가기는 참여 중인 EDITOR · VIEWER만, 초대 응답은 초대받은 본인만)는 MemberService가 한다.
  */
@@ -231,6 +235,36 @@ public class MemberController {
 			rttr.addFlashAttribute("tripMsg", e.getMessage());
 		}
 		return "redirect:/trips";
+	}
+
+	// ===== UC-026 =====
+
+	// 참여 요청 (폼 제출): POST /trips/2/members/request  (공유 링크로 열었으면 token=…)
+	// 로그인 안 했으면 LoginInterceptor가 로그인 화면으로 보낸다 (2A)
+	@PostMapping("/trips/{tripId}/members/request")
+	public String requestJoin(@PathVariable("tripId") Long tripId,
+			@RequestParam(value = "token", required = false) String token,
+			HttpSession session, RedirectAttributes rttr) {
+		log.info("requestJoin......" + tripId + ", token=" + token);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("tripMsg", service.requestJoin(tripId, userId, token));
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("tripMsg", e.getMessage());
+		}
+
+		// 7. 같은 여행 상세 화면으로 돌아간다
+		if (token != null && !token.trim().isEmpty()) {
+			// addAttribute로 넘기면 스프링이 {token} 자리에 넣으면서 주소에 쓸 수 없는 글자를 안전하게 바꿔 준다
+			rttr.addAttribute("token", token.trim());
+			return "redirect:/s/{token}";
+		}
+		return "redirect:/trips/" + tripId;
 	}
 
 	// 세션의 로그인 회원 번호 (로그인 안 했으면 null)

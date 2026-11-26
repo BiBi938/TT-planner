@@ -288,6 +288,53 @@ public class MemberServiceImpl implements MemberService {
 		return "초대를 거절했습니다.";
 	}
 
+	// UC-026 이 여행과의 관계 (UC-017 getStatus SQL 재사용)
+	@Override
+	public String getStatus(Long tripId, Long userId) {
+		if (userId == null) {
+			return null; // 로그인 안 함
+		}
+		return mapper.getStatus(tripId, userId);
+	}
+
+	// UC-026 참여 요청
+	// 화면(_join.jsp)도 상태에 따라 버튼을 숨기지만, 저장 직전에 다시 확인한다 (6A: 다른 창에서 이미 요청 · 그사이 초대받음)
+	// INSERT 한 줄뿐이라 @Transactional은 붙이지 않는다
+	@Override
+	public String requestJoin(Long tripId, Long userId, String token) {
+		log.info("requestJoin......trip " + tripId + ", user " + userId + ", token " + token);
+
+		// ① 로그인 (LoginInterceptor가 먼저 막지만 안전장치)
+		if (userId == null) {
+			throw new IllegalStateException("로그인이 필요합니다.");
+		}
+
+		// ② 볼 수 있는 여행인가: 삭제 안 됨 + (전체 공개 또는 공유 링크 토큰) → 아니면 6B 문구
+		String trimmedToken = null;
+		if (token != null && !token.trim().isEmpty()) {
+			trimmedToken = token.trim();
+		}
+		if (mapper.countRequestable(tripId, trimmedToken) == 0) {
+			throw new IllegalStateException("여행을 찾을 수 없습니다.");
+		}
+
+		// ③ 이 여행과 이미 관계가 있는가 (UC-017 getStatus 재사용)
+		String status = mapper.getStatus(tripId, userId);
+		if ("JOINED".equals(status)) {
+			throw new IllegalStateException("이미 이 여행의 멤버입니다.");                       // 2B
+		}
+		if ("REQUESTED".equals(status)) {
+			throw new IllegalStateException("이미 참여를 요청했습니다. OWNER의 수락을 기다리고 있습니다."); // 2C
+		}
+		if ("INVITED".equals(status)) {
+			throw new IllegalStateException("받은 초대가 있습니다. 내 여행 화면에서 수락하세요.");    // 2D
+		}
+
+		// ④ 요청 줄 넣기
+		mapper.insertRequest(tripId, userId);
+		return "참여를 요청했습니다. OWNER가 수락하면 멤버가 됩니다.";
+	}
+
 	// 회원 탈퇴 연결: 검사할 규칙이 없어 Mapper를 그대로 부른다
 	// 윤아연 withdraw()의 @Transactional 안에서 불리므로, 탈퇴 중 오류가 나면 이 삭제도 함께 되돌려진다
 	@Override

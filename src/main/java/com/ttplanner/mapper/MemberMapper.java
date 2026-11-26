@@ -58,6 +58,14 @@ public interface MemberMapper {
 	// 거절은 새 SQL 없이 deleteMember를 쓴다
 	int acceptInvite(@Param("tripId") Long tripId, @Param("userId") Long userId);
 
+	// UC-026 멤버가 아닌 회원이 이 여행을 "볼 수 있는가" (참여 요청 가능 조건) → 1 또는 0
+	// 삭제 안 된 여행 + (전체 공개 또는 공유 링크 token이 맞음). token이 null이면 전체 공개만 1
+	// (TripService.canView를 쓰지 않는 이유: TripServiceImpl이 MemberService를 주입받아 순환 주입이 됨)
+	int countRequestable(@Param("tripId") Long tripId, @Param("token") String token);
+
+	// UC-026 참여 요청: TRIP_MEMBER에 (ROLE = NULL, STATUS = 'REQUESTED')로 한 줄 넣는다. 넣은 줄 수(1)
+	int insertRequest(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
 	// 회원 탈퇴(UC-024, 윤아연) 연결: 이 회원의 TRIP_MEMBER 줄 중 OWNER가 아닌 것을 모두 지운다
 	// 참여 중(EDITOR · VIEWER) · 받은 초대(INVITED) · 보낸 참여 요청(REQUESTED). 지운 줄 수를 돌려준다
 	int deleteByUser(Long userId);
