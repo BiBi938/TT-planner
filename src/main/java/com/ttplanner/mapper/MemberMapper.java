@@ -33,4 +33,20 @@ public interface MemberMapper {
 	// UC-017 여행 멤버 목록 (멤버 목록 창 _members.jsp): JOINED · INVITED · REQUESTED 모두
 	// 정렬: OWNER → EDITOR → VIEWER → 권한 없음(참여 요청), 같은 권한 안에서는 닉네임 순. 탈퇴 회원 제외
 	List<MemberVO> findByTrip(Long tripId);
+
+	// UC-018 이 여행의 멤버 한 명 (닉네임 · 권한 · 상태를 한 번에). 줄이 없거나 탈퇴 회원이면 null
+	// 권한 변경 · 내보내기 · OWNER 넘기기 전에 "대상이 참여 중인 멤버인가"를 확인할 때 쓴다
+	MemberVO getMember(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
+	// UC-018 권한 바꾸기 (참여 중인 멤버만). 바꾼 줄 수(1 또는 0)를 돌려준다
+	// 권한 변경(EDITOR ↔ VIEWER)과 OWNER 넘기기(강등 · 승격 두 번)에 함께 쓴다
+	int updateRole(@Param("tripId") Long tripId, @Param("userId") Long userId, @Param("role") String role);
+
+	// UC-018 이 여행에서 이 회원의 줄 지우기. 지운 줄 수(1 또는 0)를 돌려준다
+	// 내보내기(UC-018), 여행 나가기(UC-019), 초대 거절(UC-025)에 함께 쓴다 → 누구를 지울지 검사는 Service에서
+	int deleteMember(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
+	// 회원 탈퇴(UC-024, 윤아연) 연결: 이 회원의 TRIP_MEMBER 줄 중 OWNER가 아닌 것을 모두 지운다
+	// 참여 중(EDITOR · VIEWER) · 받은 초대(INVITED) · 보낸 참여 요청(REQUESTED). 지운 줄 수를 돌려준다
+	int deleteByUser(Long userId);
 }
