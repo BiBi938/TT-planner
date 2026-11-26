@@ -157,6 +157,29 @@
 		  and status = 'INVITED'
 	</update>
 
+	<!-- UC-026 참여 요청을 할 수 있는 여행인가 (멤버가 아닌 사람이 볼 수 있는가)
+	     - del_yn = 'N'          : 삭제된 여행이면 0 (6B "여행을 찾을 수 없습니다.")
+	     - scope = 'PUBLIC'      : 전체 공개 여행 (공개 여행 검색 카드로 연 경우)
+	     - share_token = #{token}: 공유 링크(/s/{token})로 연 경우 → 비공개여도 요청 가능 (레드마인 비고)
+	       token이 null이면 "= null"은 참이 아니므로 전체 공개 여행만 1이 된다
+	     - (A or B)를 괄호로 묶어야 한다: 없으면 and가 먼저 계산돼 "삭제됐지만 토큰이 맞는 여행"도 1이 됨 -->
+	<select id="countRequestable" resultType="int">
+		select count(*)
+		from trip
+		where trip_id = #{tripId}
+		  and del_yn = 'N'
+		  and (scope = 'PUBLIC' or share_token = #{token})
+	</select>
+
+	<!-- UC-026 참여 요청 보내기
+	     - ROLE은 비워 둔다 (NULL): 권한은 OWNER가 수락할 때 정한다 (UC-027)
+	     - DB 검사 규칙 ck_trip_member_role_status: REQUESTED면 ROLE이 NULL이어야 함
+	     - 같은 (TRIP_ID, USER_ID)가 이미 있으면 PK 오류 → Service에서 getStatus로 먼저 확인 -->
+	<insert id="insertRequest">
+		insert into trip_member (trip_id, user_id, role, status)
+		values (#{tripId}, #{userId}, null, 'REQUESTED')
+	</insert>
+
 	<!-- 회원 탈퇴(UC-024) 연결: 이 회원의 OWNER가 아닌 줄을 모두 지운다
 	     - OWNER 줄은 남긴다 (그 여행은 탈퇴 ①단계 TripService.deleteByOwner가 이미 삭제 표시)
 	     - (role is null or ...)가 꼭 필요하다: 참여 요청(REQUESTED) 줄은 ROLE이 NULL인데,
