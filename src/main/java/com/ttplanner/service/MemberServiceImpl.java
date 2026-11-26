@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ttplanner.mapper.MemberMapper;
 import com.ttplanner.vo.InviteVO;
+import com.ttplanner.vo.JoinRequestVO;
 import com.ttplanner.vo.MemberVO;
 
 import lombok.Setter;
@@ -333,6 +334,70 @@ public class MemberServiceImpl implements MemberService {
 		// ④ 요청 줄 넣기
 		mapper.insertRequest(tripId, userId);
 		return "참여를 요청했습니다. OWNER가 수락하면 멤버가 됩니다.";
+	}
+
+	// UC-027 받은 참여 요청 목록
+	@Override
+	public List<JoinRequestVO> findJoinRequests(Long userId) {
+		log.info("findJoinRequests......" + userId);
+		if (userId == null) {
+			return new ArrayList<JoinRequestVO>(); // 로그인 안 함 → 빈 목록
+		}
+		return mapper.findJoinRequests(userId);
+	}
+
+	// UC-027 참여 요청 수락
+	// UPDATE 한 문장(ROLE · STATUS 같이)이라 @Transactional은 붙이지 않는다
+	@Override
+	public String acceptRequest(Long tripId, Long targetUserId, String role, Long userId) {
+		log.info("acceptRequest......trip " + tripId + ", target " + targetUserId + " → " + role + ", by " + userId);
+
+		// ① 삭제되지 않은 여행의 OWNER인가 (4A · 6B)
+		checkRequestOwner(tripId, userId);
+
+		// ② 수락할 권한은 EDITOR 또는 VIEWER만 (비고: 참여 요청으로 OWNER가 될 수 없다)
+		if (!"EDITOR".equals(role) && !"VIEWER".equals(role)) {
+			throw new IllegalStateException("수락할 권한(EDITOR 또는 VIEWER)을 고르세요.");
+		}
+
+		// ③ 아직 처리하지 않은 요청인가 (6A)
+		MemberVO target = findRequest(tripId, targetUserId);
+
+		// ④ ROLE 채우고 JOINED로 (그사이 다른 창에서 처리했으면 0줄)
+		if (mapper.acceptRequest(tripId, targetUserId, role) == 0) {
+			throw new IllegalStateException("이미 처리되었거나 취소된 참여 요청입니다.");
+		}
+		return target.getNickname() + " 님을 " + role + "로 받았습니다.";
+	}
+
+	// UC-027 참여 요청 거절 (5A): UC-018 deleteMember로 요청 줄을 지운다. 확인 창 없이 바로 (레드마인 비고)
+	@Override
+	public String rejectRequest(Long tripId, Long targetUserId, Long userId) {
+		log.info("rejectRequest......trip " + tripId + ", target " + targetUserId + ", by " + userId);
+
+		checkRequestOwner(tripId, userId);                     // ① (4A · 6B)
+		MemberVO target = findRequest(tripId, targetUserId);   // ② (6A) — 멤버 · 초대 줄을 지우지 않도록 꼭 먼저
+
+		if (mapper.deleteMember(tripId, targetUserId) == 0) {
+			throw new IllegalStateException("이미 처리되었거나 취소된 참여 요청입니다.");
+		}
+		return target.getNickname() + " 님의 참여 요청을 거절했습니다.";
+	}
+
+	// UC-027 공통 ①: 삭제되지 않은 여행이고, 처리하는 사람이 지금 OWNER인가 → 아니면 "권한이 없습니다." (4A · 6B)
+	private void checkRequestOwner(Long tripId, Long userId) {
+		if (mapper.countActiveTrip(tripId) == 0 || !"OWNER".equals(getRole(tripId, userId))) {
+			throw new IllegalStateException("권한이 없습니다.");
+		}
+	}
+
+	// UC-027 공통: 아직 처리하지 않은 참여 요청 줄 (없으면 6A 문구). 탈퇴한 회원이면 getMember가 null
+	private MemberVO findRequest(Long tripId, Long targetUserId) {
+		MemberVO target = (targetUserId == null) ? null : mapper.getMember(tripId, targetUserId);
+		if (target == null || !"REQUESTED".equals(target.getStatus())) {
+			throw new IllegalStateException("이미 처리되었거나 취소된 참여 요청입니다.");
+		}
+		return target;
 	}
 
 	// 회원 탈퇴 연결: 검사할 규칙이 없어 Mapper를 그대로 부른다

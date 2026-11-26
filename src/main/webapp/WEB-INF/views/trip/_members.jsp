@@ -26,7 +26,11 @@
   UC-019 (OWNER가 아닌 멤버가 볼 때): 내 이름 옆 [여행 나가기] → 같은 확인 상자 → POST /trips/{tripId}/members/leave
         본인 판단: m.userId == sessionScope.loginUser.userId (세션 보관함의 로그인 회원). OWNER에게는 버튼 없음(2A)
 
-  범위: S-06의 1 · 2 · 3 · 4 · 5 · 6 · 7 · 9 · 10
+  UC-027 (OWNER가 볼 때만): 목록 아래 "참여 요청 n건", 요청마다 [EDITOR로 수락][VIEWER로 수락][거절] (확인 창 없이 바로 폼 제출)
+        POST /trips/{tripId}/requests/{userId}/accept (role) · /reject → memberMsg → 이 창이 다시 열림
+        주소에 ?openMembers가 있으면(내 여행 화면 [멤버 목록에서 처리]) 창을 바로 연다
+
+  범위: S-06의 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8 · 9 · 10
   나중(다른 UC): 참여 요청 처리, 여행 나가기(UC-019)
 --%>
 
@@ -36,6 +40,10 @@
 	.tt-member-list { list-style: none; padding-left: 0; margin-bottom: 0; }
 	.tt-member-list li { padding: 3px 0; }
 	.tt-member-invited { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ddd; }
+	.tt-member-requests { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #ddd; }
+	.tt-member-requests li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+	.tt-member-requests .tt-request-name { flex: 1 1 120px; }
+	.tt-member-requests form { display: inline; margin: 0; }
 	.tt-search-result { max-height: 220px; overflow-y: auto; margin: 10px 0; }
 	.tt-search-result label { display: block; font-weight: normal; padding: 3px 0; cursor: pointer; }
 	.tt-member-menu > a { color: inherit; text-decoration: none; cursor: pointer; }
@@ -52,10 +60,12 @@
 <c:set var="editorCount" value="0" />
 <c:set var="viewerCount" value="0" />
 <c:set var="invitedCount" value="0" />
+<c:set var="requestedCount" value="0" />
 <c:forEach var="m" items="${members}">
 	<c:if test="${m.status == 'JOINED' && m.role == 'EDITOR'}"><c:set var="editorCount" value="${editorCount + 1}" /></c:if>
 	<c:if test="${m.status == 'JOINED' && m.role == 'VIEWER'}"><c:set var="viewerCount" value="${viewerCount + 1}" /></c:if>
 	<c:if test="${m.status == 'INVITED'}"><c:set var="invitedCount" value="${invitedCount + 1}" /></c:if>
+	<c:if test="${m.status == 'REQUESTED'}"><c:set var="requestedCount" value="${requestedCount + 1}" /></c:if>
 </c:forEach>
 
 <%-- ===== 멤버 목록 창 (S-06 1 · 2 · 3 · 9) ===== --%>
@@ -167,6 +177,34 @@
 					<button type="button" class="btn btn-primary" id="openInviteBtn">+ 멤버 초대</button>
 				</div>
 			</c:if>
+
+				<%-- UC-027 4. 참여 요청 n건 (OWNER만, 4A: 아니면 영역 · 버튼을 그리지 않음)
+				     5. [EDITOR로 수락] · [VIEWER로 수락] / 5A. [거절] — 되돌릴 수 없는 동작 목록에 없어 확인 창 없이 바로 (레드마인 비고) --%>
+				<c:if test="${trip.owner && requestedCount > 0}">
+					<div class="tt-member-requests">
+						<strong>참여 요청 <c:out value="${requestedCount}" />건</strong>
+						<ul class="tt-member-list">
+							<c:forEach var="m" items="${members}">
+								<c:if test="${m.status == 'REQUESTED'}">
+									<li>
+										<span class="tt-request-name"><c:out value="${m.nickname}" /></span>
+										<form method="post" action="/trips/<c:out value='${trip.tripId}'/>/requests/<c:out value='${m.userId}'/>/accept">
+											<input type="hidden" name="role" value="EDITOR">
+											<button type="submit" class="btn btn-primary btn-xs">EDITOR로 수락</button>
+										</form>
+										<form method="post" action="/trips/<c:out value='${trip.tripId}'/>/requests/<c:out value='${m.userId}'/>/accept">
+											<input type="hidden" name="role" value="VIEWER">
+											<button type="submit" class="btn btn-default btn-xs">VIEWER로 수락</button>
+										</form>
+										<form method="post" action="/trips/<c:out value='${trip.tripId}'/>/requests/<c:out value='${m.userId}'/>/reject">
+											<button type="submit" class="btn btn-link btn-xs text-danger">거절</button>
+										</form>
+									</li>
+								</c:if>
+							</c:forEach>
+						</ul>
+					</div>
+				</c:if>
 		</div>
 	</div>
 </div>
@@ -230,6 +268,11 @@
 		// 초대 결과 문구가 있으면(초대 후 돌아온 경우) 멤버 목록 창을 바로 연다
 		var memberMsg = '<c:out value="${memberMsg}"/>';
 		if (memberMsg !== '') {
+			$('#membersModal').modal('show');
+		}
+
+		// UC-027 3. 내 여행 화면 [멤버 목록에서 처리]로 왔으면(/trips/1?openMembers) 창을 바로 연다
+		if (memberMsg === '' && /[?&]openMembers(=|&|$)/.test(location.search)) {
 			$('#membersModal').modal('show');
 		}
 

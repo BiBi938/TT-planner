@@ -3,6 +3,7 @@ package com.ttplanner.service;
 import java.util.List;
 
 import com.ttplanner.vo.InviteVO;
+import com.ttplanner.vo.JoinRequestVO;
 import com.ttplanner.vo.MemberVO;
 
 /**
@@ -81,6 +82,19 @@ public interface MemberService {
 	// 결과 문구 "참여를 요청했습니다. OWNER가 수락하면 멤버가 됩니다."를 돌려줌
 	// 볼 수 없거나 삭제된 여행(6B), 이미 멤버(2B) · 요청 중(2C) · 초대받음(2D), 로그인 안 함이면 IllegalStateException
 	public String requestJoin(Long tripId, Long userId, String token);
+
+	// UC-027 내가 OWNER인 여행들에 온 참여 요청 목록 (내 여행 화면 위쪽 "받은 참여 요청 n건", trip/_invites.jsp)
+	// 없거나 로그인 안 했으면 빈 목록. 박준성 TripController.list가 model "joinRequests"로 넣는다 (연결 메서드)
+	public List<JoinRequestVO> findJoinRequests(Long userId);
+
+	// UC-027 참여 요청 수락: targetUserId의 요청을 role(EDITOR 또는 VIEWER)로 받아 멤버로 만든다
+	// userId = 처리하는 사람(로그인 회원). 이 여행의 OWNER만. 결과 문구 "○○ 님을 EDITOR로 받았습니다."
+	// OWNER 아님 · 삭제된 여행(4A · 6B), 권한 잘못됨, 이미 처리된 요청(6A)이면 IllegalStateException
+	public String acceptRequest(Long tripId, Long targetUserId, String role, Long userId);
+
+	// UC-027 참여 요청 거절(5A): 요청 줄을 지운다 (요청한 회원은 다시 요청할 수 있음)
+	// 결과 문구 "○○ 님의 참여 요청을 거절했습니다." 실패 조건은 acceptRequest와 같음
+	public String rejectRequest(Long tripId, Long targetUserId, Long userId);
 
 	// 회원 탈퇴(UC-024, 윤아연 UserServiceImpl.withdraw) 연결: 이 회원을 모든 여행에서 뺀다 → 지운 줄 수
 	// 참여 중(EDITOR · VIEWER), 받은 초대(INVITED), 보낸 참여 요청(REQUESTED) 줄을 지운다
