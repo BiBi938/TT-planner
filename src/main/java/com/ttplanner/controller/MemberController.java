@@ -26,7 +26,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j;
 
 /**
- * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) 요청 · 담당: 양지호
+ * 멤버 초대 (UC-017) · 멤버 권한 관리 (UC-018) · 여행 나가기 (UC-019) · 초대 응답 (UC-025) 요청 · 담당: 양지호
  *
  * GET  /api/trips/{tripId}/members/search?nickname=이   (Ajax, 초대 창의 회원 검색)
  *   성공 (0명 포함)        200  {"users": [{"userId": 40, "nickname": "요청한이", ...}, ...]}
@@ -50,7 +50,11 @@ import lombok.extern.log4j.Log4j;
  *   성공 → flash "tripMsg"(내 여행 화면 trip/list.jsp가 출력, 박준성) + redirect:/trips
  *   실패(멤버 아님 · OWNER) → flash "memberMsg" + redirect:/trips/{tripId} (멤버 목록 창이 다시 열림)
  *
- * 권한 검사(OWNER만, 나가기는 참여 중인 EDITOR · VIEWER만)는 MemberService가 한다.
+ * POST /trips/{tripId}/members/accept   (폼 제출, UC-025 초대 수락)
+ * POST /trips/{tripId}/members/reject   (폼 제출, UC-025 초대 거절 3A)
+ *   성공 · 실패 모두 flash "tripMsg" + redirect:/trips (초대 목록이 있는 내 여행 화면으로 돌아감)
+ *
+ * 권한 검사(OWNER만, 나가기는 참여 중인 EDITOR · VIEWER만, 초대 응답은 초대받은 본인만)는 MemberService가 한다.
  */
 @Controller
 @Log4j
@@ -188,6 +192,45 @@ public class MemberController {
 			rttr.addFlashAttribute("memberMsg", e.getMessage());
 			return "redirect:/trips/" + tripId;
 		}
+	}
+
+	// ===== UC-025 =====
+
+	// 초대 수락 (폼 제출): POST /trips/1/members/accept
+	// 내 여행 화면의 초대 목록에서 누르므로, 결과는 내 여행 화면(tripMsg)에 보여 준다
+	@PostMapping("/trips/{tripId}/members/accept")
+	public String acceptInvite(@PathVariable("tripId") Long tripId, HttpSession session, RedirectAttributes rttr) {
+		log.info("acceptInvite......" + tripId);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("tripMsg", service.acceptInvite(tripId, userId));
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("tripMsg", e.getMessage());
+		}
+		return "redirect:/trips";
+	}
+
+	// 초대 거절 (폼 제출): POST /trips/1/members/reject
+	@PostMapping("/trips/{tripId}/members/reject")
+	public String rejectInvite(@PathVariable("tripId") Long tripId, HttpSession session, RedirectAttributes rttr) {
+		log.info("rejectInvite......" + tripId);
+
+		Long userId = loginUserId(session);
+		if (userId == null) {
+			return LOGIN_REQUIRED;
+		}
+
+		try {
+			rttr.addFlashAttribute("tripMsg", service.rejectInvite(tripId, userId));
+		} catch (IllegalStateException e) {
+			rttr.addFlashAttribute("tripMsg", e.getMessage());
+		}
+		return "redirect:/trips";
 	}
 
 	// 세션의 로그인 회원 번호 (로그인 안 했으면 null)

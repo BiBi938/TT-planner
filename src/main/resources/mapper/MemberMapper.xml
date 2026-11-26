@@ -113,6 +113,50 @@
 		  and user_id = #{userId}
 	</delete>
 
+	<!-- UC-025 내가 받은 초대 목록
+	     한 줄에 필요한 것이 세 곳에 흩어져 있어 표를 4번 이어 붙인다
+	       m  = TRIP_MEMBER의 "내 초대 줄"       → 권한(role), 여행 번호
+	       t  = TRIP                             → 여행 제목, 삭제 표시
+	       om = TRIP_MEMBER의 "그 여행 OWNER 줄" → OWNER의 회원 번호 (같은 표를 다른 별명으로 한 번 더)
+	       o  = USERS                            → OWNER 닉네임
+	     - 삭제된 여행(del_yn = 'Y')의 초대는 보여 주지 않는다
+	     - TRIP_MEMBER에 초대 날짜가 없어 여행 번호 큰 순(최근 만든 여행 먼저) -->
+	<select id="findInvites" resultType="com.ttplanner.vo.InviteVO">
+		select m.trip_id, t.title, o.nickname as owner_nickname, m.role
+		from trip_member m
+		join trip t on t.trip_id = m.trip_id
+		join trip_member om on om.trip_id = m.trip_id and om.role = 'OWNER'
+		join users o on o.user_id = om.user_id
+		where m.user_id = #{userId}
+		  and m.status = 'INVITED'
+		  and t.del_yn = 'N'
+		order by m.trip_id desc
+	</select>
+
+	<!-- UC-025 이 여행에서 내가 받은 초대 한 건 (findInvites와 같은 JOIN + 여행 번호 조건) → 많아야 1줄 -->
+	<select id="getInvite" resultType="com.ttplanner.vo.InviteVO">
+		select m.trip_id, t.title, o.nickname as owner_nickname, m.role
+		from trip_member m
+		join trip t on t.trip_id = m.trip_id
+		join trip_member om on om.trip_id = m.trip_id and om.role = 'OWNER'
+		join users o on o.user_id = om.user_id
+		where m.trip_id = #{tripId}
+		  and m.user_id = #{userId}
+		  and m.status = 'INVITED'
+		  and t.del_yn = 'N'
+	</select>
+
+	<!-- UC-025 초대 수락: INVITED → JOINED (ROLE은 그대로)
+	     - status = 'INVITED' 조건: 이미 수락했거나 참여 요청(REQUESTED) 줄은 바꾸지 않는다
+	     - DB 검사 규칙: JOINED면 ROLE이 있어야 함 → INVITED 줄은 ROLE이 EDITOR · VIEWER라 그대로 통과 -->
+	<update id="acceptInvite">
+		update trip_member
+		set status = 'JOINED'
+		where trip_id = #{tripId}
+		  and user_id = #{userId}
+		  and status = 'INVITED'
+	</update>
+
 	<!-- 회원 탈퇴(UC-024) 연결: 이 회원의 OWNER가 아닌 줄을 모두 지운다
 	     - OWNER 줄은 남긴다 (그 여행은 탈퇴 ①단계 TripService.deleteByOwner가 이미 삭제 표시)
 	     - (role is null or ...)가 꼭 필요하다: 참여 요청(REQUESTED) 줄은 ROLE이 NULL인데,

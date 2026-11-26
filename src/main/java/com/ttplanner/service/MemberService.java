@@ -2,6 +2,7 @@ package com.ttplanner.service;
 
 import java.util.List;
 
+import com.ttplanner.vo.InviteVO;
 import com.ttplanner.vo.MemberVO;
 
 /**
@@ -55,6 +56,20 @@ public interface MemberService {
 	// 결과 문구 "여행에서 나갔습니다."를 돌려줌
 	// 멤버가 아니거나(로그인 안 함 · 초대 중 · 참여 요청 포함) OWNER면 IllegalStateException
 	public String leave(Long tripId, Long userId);
+
+	// UC-025 내가 받은 초대 목록 (응답 대기, 삭제된 여행 제외, 여행 번호 큰 순)
+	// 내 여행 화면 위쪽 "받은 초대 n건"(trip/_invites.jsp). 없거나 로그인 안 했으면(userId == null) 빈 목록 (2A)
+	// 박준성 TripController.list가 model "invites"로 넣는다 (연결 메서드)
+	public List<InviteVO> findInvites(Long userId);
+
+	// UC-025 초대 수락: 초대받은 권한의 멤버가 된다 (STATUS INVITED → JOINED)
+	// 결과 문구 "'서울 여행' 여행의 VIEWER가 되었습니다."를 돌려줌
+	// 응답할 초대가 없으면(이미 응답 · 다른 사람 · 삭제된 여행 · 로그인 안 함) IllegalStateException
+	public String acceptInvite(Long tripId, Long userId);
+
+	// UC-025 초대 거절(3A): 초대 줄을 지운다 → OWNER 멤버 목록의 "초대 중"도 사라짐
+	// 결과 문구 "초대를 거절했습니다."를 돌려줌. 응답할 초대가 없으면 IllegalStateException
+	public String rejectInvite(Long tripId, Long userId);
 
 	// 회원 탈퇴(UC-024, 윤아연 UserServiceImpl.withdraw) 연결: 이 회원을 모든 여행에서 뺀다 → 지운 줄 수
 	// 참여 중(EDITOR · VIEWER), 받은 초대(INVITED), 보낸 참여 요청(REQUESTED) 줄을 지운다
