@@ -1,5 +1,6 @@
 package com.ttplanner.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ttplanner.mapper.MemberMapper;
+import com.ttplanner.vo.InviteVO;
 import com.ttplanner.vo.MemberVO;
 
 import lombok.Setter;
@@ -237,6 +239,53 @@ public class MemberServiceImpl implements MemberService {
 			throw new IllegalStateException("이 여행의 멤버가 아닙니다.");
 		}
 		return "여행에서 나갔습니다.";
+	}
+
+	// UC-025 받은 초대 목록
+	@Override
+	public List<InviteVO> findInvites(Long userId) {
+		log.info("findInvites......" + userId);
+		if (userId == null) {
+			return new ArrayList<InviteVO>(); // 로그인 안 함 → 빈 목록
+		}
+		return mapper.findInvites(userId);
+	}
+
+	// UC-025 초대 수락
+	// UPDATE 한 줄뿐이라 @Transactional은 붙이지 않는다
+	@Override
+	public String acceptInvite(Long tripId, Long userId) {
+		log.info("acceptInvite......trip " + tripId + ", user " + userId);
+
+		// ① 아직 응답할 초대가 있는가 (+ 문구에 쓸 여행 제목 · 권한)
+		InviteVO invite = (userId == null) ? null : mapper.getInvite(tripId, userId);
+		if (invite == null) {
+			throw new IllegalStateException("초대를 찾을 수 없습니다.");
+		}
+
+		// ② INVITED → JOINED (그사이 OWNER가 초대를 지웠으면 0줄)
+		if (mapper.acceptInvite(tripId, userId) == 0) {
+			throw new IllegalStateException("초대를 찾을 수 없습니다.");
+		}
+		return "'" + invite.getTitle() + "' 여행의 " + invite.getRole() + "가 되었습니다.";
+	}
+
+	// UC-025 초대 거절 (3A): UC-018 deleteMember로 초대 줄을 지운다
+	@Override
+	public String rejectInvite(Long tripId, Long userId) {
+		log.info("rejectInvite......trip " + tripId + ", user " + userId);
+
+		// ① 아직 응답할 초대가 있는가 (멤버 · 참여 요청 줄을 지우지 않도록 꼭 먼저 확인)
+		InviteVO invite = (userId == null) ? null : mapper.getInvite(tripId, userId);
+		if (invite == null) {
+			throw new IllegalStateException("초대를 찾을 수 없습니다.");
+		}
+
+		// ② 초대 줄 지우기
+		if (mapper.deleteMember(tripId, userId) == 0) {
+			throw new IllegalStateException("초대를 찾을 수 없습니다.");
+		}
+		return "초대를 거절했습니다.";
 	}
 
 	// 회원 탈퇴 연결: 검사할 규칙이 없어 Mapper를 그대로 부른다

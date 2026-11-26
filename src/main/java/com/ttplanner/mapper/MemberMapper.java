@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.apache.ibatis.annotations.Param;
 
+import com.ttplanner.vo.InviteVO;
 import com.ttplanner.vo.MemberVO;
 
 /**
@@ -45,6 +46,17 @@ public interface MemberMapper {
 	// UC-018 이 여행에서 이 회원의 줄 지우기. 지운 줄 수(1 또는 0)를 돌려준다
 	// 내보내기(UC-018), 여행 나가기(UC-019), 초대 거절(UC-025)에 함께 쓴다 → 누구를 지울지 검사는 Service에서
 	int deleteMember(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
+	// UC-025 내가 받은 초대 목록 (응답 대기 INVITED만, 삭제된 여행 제외, 여행 번호 큰 순). 없으면 빈 목록
+	List<InviteVO> findInvites(Long userId);
+
+	// UC-025 이 여행에서 내가 받은 초대 한 건 (응답 대기 INVITED + 삭제 안 된 여행). 없으면 null
+	// 수락 · 거절 전에 "아직 응답할 초대가 있는가" 확인 + 수락 문구의 여행 제목 · 권한에 쓴다
+	InviteVO getInvite(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
+	// UC-025 초대 수락: 내 INVITED 줄의 STATUS를 'JOINED'로 (ROLE은 초대할 때 정한 그대로). 바꾼 줄 수(1 또는 0)
+	// 거절은 새 SQL 없이 deleteMember를 쓴다
+	int acceptInvite(@Param("tripId") Long tripId, @Param("userId") Long userId);
 
 	// 회원 탈퇴(UC-024, 윤아연) 연결: 이 회원의 TRIP_MEMBER 줄 중 OWNER가 아닌 것을 모두 지운다
 	// 참여 중(EDITOR · VIEWER) · 받은 초대(INVITED) · 보낸 참여 요청(REQUESTED). 지운 줄 수를 돌려준다
