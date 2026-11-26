@@ -143,8 +143,8 @@ public class TripController {
 		// 일정 목록 → trip/_schedules.jsp, trip/_map.jsp (송유림, UC-013). DAY 번호 → SLOT_NO 순
 		model.addAttribute("schedules", scheduleService.findByTrip(tripId));
 
-		// TODO(양지호): MemberService.summary(tripId)가 develop에 들어오면 그것으로 바꾼다.
-		//              지금은 여행 정보에 이미 있는 OWNER 닉네임 · 멤버 수로 같은 이름(ownerNickname, otherCount)을 만들어 둔다.
+		// 멤버 요약 → trip/_members.jsp (양지호). MemberService.summary는 만들지 않기로 함(PR #27)
+		// → 여행 정보에 이미 있는 OWNER 닉네임 · 멤버 수로 ownerNickname, otherCount를 만든다
 		Map<String, Object> summary = new HashMap<>();
 		summary.put("ownerNickname", trip.getOwnerNickname());
 		summary.put("otherCount", Math.max(trip.getMemberCount() - 1, 0));

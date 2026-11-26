@@ -41,6 +41,11 @@ public class TripServiceImpl implements TripService {
 	@Setter(onMethod_ = @Autowired)
 	private DayService dayService;
 
+	// 여행 멤버 권한 OWNER · EDITOR · VIEWER (양지호, MemberService.getRole — 팀 공통 권한 규칙)
+	// 권한 규칙이 바뀌면(예: 탈퇴 회원 제외) MemberService 한 곳만 고치면 되도록 여기서도 그것을 쓴다
+	@Setter(onMethod_ = @Autowired)
+	private MemberService memberService;
+
 	// ===================== UC-007 내 여행 목록 =====================
 
 	@Override
@@ -122,8 +127,7 @@ public class TripServiceImpl implements TripService {
 		if (trip == null) {
 			return false;
 		}
-		// TODO(양지호): MemberService.getRole이 develop에 들어오면 mapper.getRole 대신 그것을 쓴다.
-		return trip.isPublicScope() || (userId != null && mapper.getRole(tripId, userId) != null);
+		return trip.isPublicScope() || memberService.getRole(tripId, userId) != null;
 	}
 
 	@Override
@@ -150,7 +154,7 @@ public class TripServiceImpl implements TripService {
 		if (trip == null) {
 			throw TripAccessException.notFound();
 		}
-		String role = userId == null ? null : mapper.getRole(tripId, userId);
+		String role = memberService.getRole(tripId, userId); // 로그인하지 않았으면 null
 
 		// 2A. 비공개 여행인데 멤버가 아님 (공유 링크로 들어온 경우는 getTripByShareToken)
 		if (role == null && !trip.isPublicScope()) {
@@ -166,7 +170,7 @@ public class TripServiceImpl implements TripService {
 			throw TripAccessException.notFound();
 		}
 		// 7A. 멤버가 공유 링크로 들어오면 본인 권한을 적용한다
-		String role = userId == null ? null : mapper.getRole(trip.getTripId(), userId);
+		String role = memberService.getRole(trip.getTripId(), userId); // 로그인하지 않았으면 null
 		return complete(trip, role);
 	}
 
@@ -288,7 +292,7 @@ public class TripServiceImpl implements TripService {
 		if (trip == null) {
 			throw TripAccessException.notFound();
 		}
-		if (userId == null || !"OWNER".equals(mapper.getRole(tripId, userId))) {
+		if (!"OWNER".equals(memberService.getRole(tripId, userId))) {
 			throw TripAccessException.notOwner();
 		}
 		trip.setMyRole("OWNER");

@@ -21,8 +21,7 @@ public interface TripMapper {
 
 	List<String> getRegions(Long tripId);
 
-	// 참여(JOINED) 중인 멤버의 권한. 멤버가 아니면 null
-	String getRole(@Param("tripId") Long tripId, @Param("userId") Long userId);
+	// 권한(OWNER · EDITOR · VIEWER)은 MemberService.getRole(양지호)을 쓴다
 
 	// ---------- 여행 생성 ----------
 	// TRIP_ID는 seq_trip으로 채워 trip.tripId에 넣는다. SCOPE는 항상 'PRIVATE'
