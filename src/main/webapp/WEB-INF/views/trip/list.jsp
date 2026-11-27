@@ -4,7 +4,9 @@
   S-03 내 여행 (UC-007) + S-04 새 여행 만들기 창 (UC-008) · 담당: 박준성
   GET  /trips → TripController.list()   → 이 화면
   POST /trips → TripController.create() → 성공: /trips/{번호}, 입력 오류: 이 화면에서 창을 다시 연다
-  model: trips(List<TripVO>), regionOptions(지역 17개), newForm(TripFormVO), tripErrors(입력 오류), tripMsg(처리 결과)
+  model: trips(List<TripVO>), regionOptions(지역 17개), newForm(TripFormVO), tripErrors(입력 오류), tripMsg(처리 결과),
+         invites(받은 초대), joinRequests(받은 참여 요청) → _invites.jsp (양지호, UC-025 · UC-027)
+  세션 copyDays가 있으면 _copyBar.jsp (송유림, UC-020)
 --%>
 <%@include file="../includes/header.jsp"%>
 
@@ -32,6 +34,9 @@
 <c:if test="${not empty tripMsg}">
 	<div class="alert alert-success"><c:out value="${tripMsg}"/></div>
 </c:if>
+
+<%-- UC-025 받은 초대 · UC-027 받은 참여 요청 (양지호). 둘 다 없으면 아무것도 그리지 않는다 --%>
+<jsp:include page="_invites.jsp"/>
 
 <%-- UC-007 2B. 여행 복사 중(세션 copyDays, 송유림 UC-020)이면 복사 안내 조각을 보여 준다 --%>
 <c:set var="copying" value="${not empty sessionScope.copyDays}"/>

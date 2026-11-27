@@ -64,7 +64,7 @@ public class TripController {
 
 	private ScheduleService scheduleService; // 일정 목록 (송유림, UC-013)
 
-	private MemberService memberService; // 멤버 목록 (양지호, UC-017)
+	private MemberService memberService; // 멤버 목록 · 받은 초대 · 참여 요청 (양지호, UC-017 · 025 · 026 · 027)
 
 	// ===================== UC-007 내 여행 =====================
 
@@ -78,6 +78,8 @@ public class TripController {
 
 		model.addAttribute("trips", service.getMyTrips(userId));
 		model.addAttribute("regionOptions", TripService.REGIONS);
+		model.addAttribute("invites", memberService.findInvites(userId));            // 받은 초대 (양지호, UC-025)
+		model.addAttribute("joinRequests", memberService.findJoinRequests(userId));  // 받은 참여 요청 (양지호, UC-027)
 		if (!model.containsAttribute("newForm")) {
 			model.addAttribute("newForm", new TripFormVO());
 		}
@@ -127,8 +129,8 @@ public class TripController {
 	}
 
 	/**
-	 * detail.jsp와 조각(_days.jsp, _members.jsp, _map.jsp, _like.jsp)이 쓰는 값 (구성정의서 8장 나.)
-	 * trip, days, schedules, summary, members, myRole, likeCount, liked
+	 * detail.jsp와 조각(_days.jsp, _schedules.jsp, _members.jsp, _map.jsp, _join.jsp, _like.jsp)이 쓰는 값 (구성정의서 8장 나.)
+	 * trip, days, schedules, summary, members, myRole, likeCount, liked, myStatus, shareUrl(멤버만)
 	 * token: 공유 링크(/s/{token})로 열었을 때만 값이 있다 → [내 여행으로 복사]를 /trips/{id}/copy?token=…으로 보낸다
 	 */
 	private void fillDetail(TripVO trip, String token, HttpServletRequest request, Model model) {
@@ -159,6 +161,7 @@ public class TripController {
 		Long userId = loginUserId(request.getSession(false));
 		model.addAttribute("likeCount", likeService.count(tripId));
 		model.addAttribute("liked", likeService.isLiked(tripId, userId));
+		model.addAttribute("myStatus", memberService.getStatus(tripId, userId)); // 참여 요청 자리 (양지호, UC-026)
 
 		// UC-016 1A. 공유 링크는 멤버에게만 보인다
 		if (trip.isMember()) {

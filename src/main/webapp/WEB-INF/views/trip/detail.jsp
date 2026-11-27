@@ -6,11 +6,13 @@
   GET /s/{공유코드}   → TripController.shared()   (공유 링크, 로그인 없이)
   함께 처리: UC-009 여행 정보 수정, UC-010 여행 삭제, UC-015 공개 범위 설정, UC-016 공유 링크 복사
 
-  model: trip(TripVO), myRole, days(List<DayVO>), schedules, summary, members, likeCount, liked, token(공유 링크로 열었을 때), shareUrl(멤버만), regionOptions, infoForm, periodForm,
+  model: trip(TripVO), myRole, days(List<DayVO>), schedules, summary, members, likeCount, liked, myStatus(참여 요청 자리),
+         token(공유 링크로 열었을 때), shareUrl(멤버만), regionOptions, infoForm, periodForm,
          tripMsg(처리 결과), tripErrors(입력 오류), openDialog, periodConfirm
-  다른 팀원 조각 (파일이 아직 없으면 그 자리만 비워 두고 화면은 그대로 뜬다)
-    _days.jsp    DAY 카드 · 일정 (양지호)      _map.jsp   지도 (양지호)
-    _members.jsp 멤버 목록 · 초대 (양지호)      _like.jsp  좋아요 버튼 (김민정)
+  다른 팀원 조각 (c:catch로 감싼 조각은 오류가 나도 그 자리만 비워 두고 화면은 그대로 뜬다)
+    _days.jsp    DAY 카드 (양지호) — 카드 안 일정 목록은 _schedules.jsp (송유림)
+    _map.jsp     지도 (윤아연)                  _members.jsp 멤버 목록 · 초대 (양지호)
+    _join.jsp    참여 요청 (양지호)              _like.jsp    좋아요 버튼 (김민정)
 --%>
 <%@include file="../includes/header.jsp"%>
 
@@ -131,17 +133,19 @@
 		<c:if test="${not empty token}"><c:param name="token" value="${token}"/></c:if>
 	</c:url>
 	<a class="btn btn-default" href="<c:out value='${copyUrl}'/>">내 여행으로 복사</a>
+	<%-- UC-026 참여 요청 버튼 · "참여 요청 중" · 초대 안내 (양지호). 멤버에게는 아무것도 그리지 않는다 --%>
+	<c:catch var="joinError"><jsp:include page="_join.jsp"/></c:catch>
 	<c:catch var="likeError"><jsp:include page="_like.jsp"/></c:catch>
 </div>
 
 <hr>
 
 <div class="row">
-	<%-- 5. DAY 카드와 일정 (양지호 _days.jsp) --%>
+	<%-- 5. DAY 카드 (양지호 _days.jsp)와 그 안의 일정 (송유림 _schedules.jsp) --%>
 	<div class="col-md-8">
 		<jsp:include page="_days.jsp"/>
 	</div>
-	<%-- 6. 지도 (양지호, UC-006) --%>
+	<%-- 6. 지도 (윤아연, UC-006) --%>
 	<div class="col-md-4">
 		<c:catch var="mapError"><jsp:include page="_map.jsp"/></c:catch>
 	</div>

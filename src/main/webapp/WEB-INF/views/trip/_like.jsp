@@ -5,8 +5,8 @@
 
   model:
     trip(TripVO) — 필수. trip.publicScope 가 false 이면 아무것도 표시 안 함 (UC-021 1A)
-    likeCount(int) — 박준성이 TripController.fillDetail()에 추가하기 전까지 0으로 대체
-    liked(boolean)  — 같은 이유로 false 로 대체
+    likeCount(int) — TripController.fillDetail()(박준성)이 넣어 줌. 값이 없으면 0
+    liked(boolean)  — TripController.fillDetail()(박준성)이 넣어 줌. 값이 없으면 false (비로그인도 false)
 
   Ajax: POST /api/trips/{tripId}/like
     200  {"liked": true/false, "count": n}  → 버튼 ♥/♡ 색상·숫자 갱신
@@ -16,7 +16,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c"%>
 
 <c:if test="${trip.publicScope}">
-    <%-- 박준성이 fillDetail()에 추가하기 전까지 기본값 대체 --%>
+    <%-- 값이 없을 때를 대비한 기본값 --%>
     <c:set var="initLikeCount" value="${empty likeCount ? 0 : likeCount}"/>
     <c:set var="initLiked"     value="${not empty liked and liked}"/>
 
