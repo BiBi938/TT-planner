@@ -11,7 +11,7 @@
 <div class="tt-narrow">
 	<h2 class="page-header">로그인</h2>
 
-	<%-- 로그아웃 · 가입 완료 · 탈퇴 완료 · 로그인 필요 안내 --%>
+	<%-- 로그아웃 · 가입 완료 · 탈퇴 완료 안내 (로그인 필요 안내는 loginRequired.jsp의 브라우저 팝업) --%>
 	<c:if test="${not empty message}">
 		<div class="alert alert-info"><c:out value="${message}"/></div>
 	</c:if>

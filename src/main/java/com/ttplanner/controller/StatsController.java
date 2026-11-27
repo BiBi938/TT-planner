@@ -34,8 +34,8 @@ public class StatsController {
 	public String stats(HttpSession session, Model model) {
 		UserVO loginUser = (UserVO) session.getAttribute(LoginInterceptor.LOGIN_USER);
 
-		// 로그인 검사: LoginInterceptor가 servlet-context.xml에 등록되면 여기까지 오지 않는다.
-		// 지금은 등록 전이라 Controller에서도 막는다 (등록된 뒤에도 그대로 두어도 된다).
+		// 로그인 검사: LoginInterceptor(servlet-context.xml에 등록됨)가 먼저 막으므로 보통 여기까지 오지 않는다.
+		// 혹시 모를 경우를 위해 Controller에서도 한 번 더 막는다.
 		if (loginUser == null) {
 			return "redirect:" + LOGIN_URL;
 		}

@@ -38,7 +38,7 @@ import lombok.extern.log4j.Log4j;
  * 다른 팀원은 (UserVO) session.getAttribute(LoginInterceptor.LOGIN_USER)로 꺼낸다.
  *
  * 로그인 화면 주소에 붙는 값 (다른 팀원이 로그인 화면으로 보낼 때 쓴다)
- *   ?required        "로그인이 필요합니다." 표시     예) TripController, DayController
+ *   ?required        "로그인이 필요합니다." 브라우저 팝업 → /user/login   예) LoginInterceptor, TripController, DayController
  *   ?back=/주소       로그인 후 그 주소로 돌아감     예) CopyController(?required&back=…), StatsController, _like.jsp
  */
 @Controller
@@ -69,8 +69,14 @@ public class UserController {
 		if (isSafeBackUrl(back)) {
 			session.setAttribute(LoginInterceptor.BACK_URL, back);
 		}
-		if (required != null && !model.containsAttribute("message")) {
-			model.addAttribute("message", "로그인이 필요합니다.");
+		// ?required: 브라우저 팝업 "로그인이 필요합니다." → [확인] → GET /user/login (user/loginRequired.jsp)
+		if (required != null) {
+			return "user/loginRequired";
+		}
+		// ?back=만 있으면(좋아요 등 Ajax 401) 돌아올 주소는 위에서 저장했으니 주소만 /user/login으로 정리한다.
+		// 주소 뒤에 ?가 붙어 있으면 사이드바 [로그인]이 선택된 색으로 표시되지 않는다 (sb-admin-2.js는 주소 전체를 비교)
+		if (back != null) {
+			return "redirect:/user/login";
 		}
 		return "user/login";
 	}
