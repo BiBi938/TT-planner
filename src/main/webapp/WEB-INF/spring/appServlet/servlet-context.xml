@@ -37,8 +37,6 @@
 			<exclude-mapping path="/api/users/check" />
 			<exclude-mapping path="/public/**" />
 			<exclude-mapping path="/s/**" />
-			<!-- 환경 확인용 게시판. Board 파일을 지울 때 이 줄도 지운다 -->
-			<exclude-mapping path="/board/**" />
 			<beans:bean class="com.ttplanner.interceptor.LoginInterceptor" />
 		</interceptor>
 	</interceptors>

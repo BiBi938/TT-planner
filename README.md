@@ -16,11 +16,11 @@ B팀 정보시스템구축및관리 프로젝트. 버전과 규칙은 **TT플래
 
 1. `git clone` 후 STS에서 **File → Import → Existing Maven Projects**로 `TT-planner` 폴더를 연다.
 2. SQL Developer에서 system 계정으로 `db/00_create_user.sql`을 실행해 `tt_planner` 계정을 만든다.
-3. `tt_planner` 계정으로 접속해 `db/01_sample_board.sql`을 실행한다 (환경 확인용 게시판).
+3. `tt_planner` 계정으로 접속해 `db/schema.sql`을 실행한다 (TT플래너 테이블).
 4. `src/main/resources/db.properties.example`을 복사해 `db.properties`로 저장하고, 비밀번호를 내 PC에 맞게 고친다.
    `db.properties`는 `.gitignore`에 있어서 GitHub에 올라가지 않는다.
 5. 프로젝트 우클릭 → **Maven → Update Project** (Force Update 체크).
-6. Servers 탭에서 Tomcat 9에 프로젝트를 추가하고 실행 → `http://localhost:8080/board/list`가 열리면 환경 설정 끝.
+6. Servers 탭에서 Tomcat 9에 프로젝트를 추가하고 실행 → `http://localhost:8080/`을 열어 "로그인이 필요합니다." 팝업 뒤 로그인 화면이 나오면 환경 설정 끝.
    (Tomcat 서버의 Modules 탭에서 Path가 `/`인지 확인. JSP가 `/resources/...` 절대 경로를 쓴다.)
 
 ## 3. Lombok을 STS에 설치하기
@@ -38,7 +38,7 @@ pom.xml만으로는 STS 편집기가 `@Data`, `@Setter`를 인식하지 못한�
 |---|---|
 | `persistence/JDBCTests` | Oracle 접속 (db.properties의 계정) |
 | `persistence/DataSourceTests` | HikariCP + MyBatis 연결 |
-| `mapper/BoardMapperTests` | 매퍼 XML (`resources/mapper/`) 동작 |
+| `mapper/LikeMapperTests` | 매퍼 XML (`resources/mapper/`) 동작 |
 
 Maven 빌드(`mvn package`)에서는 DB가 없어도 되도록 테스트를 건너뛴다. 테스트는 STS에서 **Run As → JUnit Test**로 돌린다.
 
@@ -55,10 +55,8 @@ src/main/resources
  ├─ db.properties.example
  ├─ log4j.xml, log4jdbc.log4j2.properties
 src/main/webapp/WEB-INF/views   JSP (includes/header.jsp, footer.jsp 공통)
-db/              계정 생성, 샘플, schema.sql
+db/              계정 생성, schema.sql
 ```
-
-`Board*` 파일과 `db/01_sample_board.sql`은 환경 확인용이다. TT플래너 기능 구현을 시작하면 지운다.
 
 ## 6. 자주 나는 오류
 
