@@ -1,39 +1,26 @@
 package com.ttplanner.controller;
 
-import java.text.DateFormat;
-import java.util.Date;
-import java.util.Locale;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.GetMapping;
+
+import lombok.extern.log4j.Log4j;
 
 /**
- * Handles requests for the application home page.
+ * 첫 주소 (공통)
+ *
+ * GET / → 내 여행 GET /trips (박준성, S-03 메인)로 보낸다.
+ *   로그인함   → 내 여행 화면
+ *   로그인 안 함 → /trips에서 LoginInterceptor(윤아연)가 막고 /user/login?required로 보냄
+ *                → 브라우저 팝업 "로그인이 필요합니다." → 로그인 화면 → 로그인하면 다시 /trips로 돌아온다
+ * ("/" 자체는 servlet-context.xml에서 로그인 검사 예외라 여기까지는 누구나 온다)
  */
 @Controller
+@Log4j
 public class HomeController {
-	
-	private static final Logger logger = LoggerFactory.getLogger(HomeController.class);
-	
-	/**
-	 * Simply selects the home view to render by returning its name.
-	 */
-	@RequestMapping(value = "/", method = RequestMethod.GET)
-	public String home(Locale locale, Model model) {
-		logger.info("Welcome home! The client locale is {}.", locale);
-		
-		Date date = new Date();
-		DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.LONG, locale);
-		
-		String formattedDate = dateFormat.format(date);
-		
-		model.addAttribute("serverTime", formattedDate );
-		
-		return "home";
+
+	@GetMapping("/")
+	public String home() {
+		log.info("home → /trips");
+		return "redirect:/trips";
 	}
-	
 }

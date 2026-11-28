@@ -16,7 +16,7 @@ import lombok.extern.log4j.Log4j;
  * servlet-context.xml에 등록되어 모든 요청보다 먼저 실행된다.
  * 로그인 없이 쓸 수 있는 주소는 구성정의서 v1.4 5장 다.의 "로그인, 회원가입, 공개 여행 검색 · 열람, 공유 링크"다.
  *   servlet-context.xml의 exclude-mapping으로 빼는 주소: / , /resources/** , /user/login, /user/join, /user/logout,
- *     /api/users/check, /public/** , /s/** , /board/**(환경 확인용) → 여기까지 오지 않는다.
+ *     /api/users/check, /public/** , /s/** → 여기까지 오지 않는다.
  *   여기서 따로 통과시키는 주소: GET /trips/{번호} (공개 여행 열람. 볼 수 있는지는 TripController가 검사)
  *
  * Ajax(/api/**)는 401 + {"message":"로그인이 필요합니다.","loginUrl":"/user/login"}을 돌려준다.
@@ -25,7 +25,7 @@ import lombok.extern.log4j.Log4j;
  * 흐름 예) 비로그인 사용자가 GET /settings/mypage
  *   → preHandle(): 세션에 loginUser 없음
  *   → 돌아올 주소 "/settings/mypage"를 세션 backUrl에 저장
- *   → redirect:/user/login?required → 로그인 화면에 "로그인이 필요합니다." 표시
+ *   → redirect:/user/login?required → 브라우저 팝업 "로그인이 필요합니다." → 로그인 화면(/user/login)
  *   → 로그인 성공 시 UserController가 backUrl로 돌려보낸다.
  */
 @Log4j

@@ -25,7 +25,7 @@ import lombok.extern.log4j.Log4j;
  *   TripService.find (박준성)                           : 넣을 여행 · 원본 여행 정보 (제목, 지역, 공개 범위)
  *   TripService.create(trip, regions, owner) (박준성)   : 복사한 DAY로 새 여행 만들기 (DAY는 만들지 않음)
  *   MemberService.getRole (양지호)                      : 넣을 여행에서 내 권한
- *   DayService.insertDays (양지호)                      : 복사한 DAY와 일정을 여행의 원하는 자리에 넣기
+ *   DayService.insertDays (송유림, DayMapper.xml)       :복사한 DAY와 일정을 여행의 원하는 자리에 넣기
  */
 @Log4j
 @Service
@@ -106,7 +106,7 @@ public class CopyServiceImpl implements CopyService {
 			throw new IllegalStateException("복사한 DAY는 내가 OWNER · EDITOR인 여행에만 넣을 수 있습니다.");
 		}
 
-		// 복사한 DAY가 남아 있는지 확인한 뒤, 원본 여행 · DAY 번호 순으로 넣는다 (DayService.insertDays, 양지호)
+		// 복사한 DAY가 남아 있는지 확인한 뒤, 원본 여행 · DAY 번호 순으로 넣는다 (DayService.insertDays, 송유림)
 		List<Long> sourceDayIds = toDayIds(checkSourceDays(copyDays));
 		int scheduleCount = dayService.insertDays(targetTripId, position, sourceDayIds);
 

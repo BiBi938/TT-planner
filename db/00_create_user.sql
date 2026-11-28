@@ -15,4 +15,4 @@ grant create view to tt_planner;
 alter user tt_planner quota unlimited on users;
 
 -- 이후 SQL Developer에서 tt_planner / tt_planner 로 새 접속을 만들어
--- 01_sample_board.sql (환경 확인용) 과 schema.sql (TT플래너 테이블) 을 실행한다.
+-- schema.sql (TT플래너 테이블) 을 실행한다.
